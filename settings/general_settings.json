@@ -1,0 +1,8 @@
+{
+    "proxies" : [{
+        "host" : "255.255.255.255",
+        "login" : "hello",
+        "password" : "world"
+    }],
+    "disable_proxy": true
+}
