@@ -7,19 +7,18 @@ use mongodb::{Client, options::ClientOptions, error::ErrorKind};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
 
-use crate::generic::entity::Entity;
+use crate::{generic::entity::Entity, client::managers::task_manager::ParsingTask};
 
-use super::managers::task_manager::ParsingTask;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display)]
 pub enum DATABASE {
-    mansa
+    MANSA
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display)]
 pub enum DATABASE_COLLECTIONS {
-    entities,
-    parsing_task
+    ENTITIES,
+    PARSING_TASKS
 }
 
 pub async fn create_mongo_client(login: &str, password: &str, port: u64) -> Client {
@@ -38,15 +37,7 @@ lazy_static! {
     });
 }
 
-pub async fn insert_entities(entities: &Vec<Entity>) {
-    insert_if_not_empty::<Entity>(entities, DATABASE::mansa, DATABASE_COLLECTIONS::entities).await;
-}
-
-pub async fn insert_tasks(tasks: &Vec<ParsingTask>) {
-    insert_if_not_empty::<ParsingTask>(tasks, DATABASE::mansa, DATABASE_COLLECTIONS::parsing_task).await;
-}
-
-async fn insert_if_not_empty<T>(collection: impl IntoIterator<Item = impl Borrow<T>>, database: DATABASE, database_collection: DATABASE_COLLECTIONS) 
+pub async fn insert_if_not_empty<T>(collection: impl IntoIterator<Item = impl Borrow<T>>, database: DATABASE, database_collection: DATABASE_COLLECTIONS) 
 where
     T: Serialize
 {

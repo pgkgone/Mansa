@@ -7,7 +7,7 @@ use log::{error, info};
 use regex::Regex;
 use reqwest::{Response, StatusCode};
 use lazy_static::{lazy_static, __Deref};
-use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, self, database::{MONGO_CLIENT, insert_entities, self}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::ParsingTask}}, utils::time::get_timestamp};
+use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, self, db::{self, entities_db}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::ParsingTask}}, utils::time::get_timestamp};
 
 use super::data_types::{AuthResponse, Thread, RedditTaskType, RedditUrlWithPlaceholders};
 
@@ -101,11 +101,10 @@ impl SocialNetwork for Reddit {
             return (None, Vec::new());
         }
 
-        let responses_uw = responses.unwrap();
         let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
         let mut auth_data: HttpAuthData = account.1.clone();
 
-        for response in responses_uw {
+        for response in responses.unwrap() {
             let (response_timestamp, millis_to_refresh, requests_limit) = Reddit::parse_limits_from_header(&response);
             let correspond_parsing_task = (**requests_map.get(&response.url().to_string()).unwrap()).clone();
             //why it's not a enum??? reqwest WTF?
@@ -114,7 +113,7 @@ impl SocialNetwork for Reddit {
                 if response_body.is_ok() {
                     let thread = response_body.unwrap();
                     parsing_tasks.extend(Reddit::spawn_new_tasks(&correspond_parsing_task, &thread));
-                    database::insert_entities(&Self::get_entities(&thread)).await;
+                    entities_db::insert_entities(&Self::get_entities(&thread)).await;
                 }
             } else {
                 parsing_tasks.push(correspond_parsing_task);

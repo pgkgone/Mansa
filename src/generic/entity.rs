@@ -39,7 +39,7 @@ impl From<&Children> for Entity {
             _id: None,
             source: children.source.clone().unwrap_or("".to_string()),
             source_followers: children.source_followers.unwrap_or(0),
-            date_time: DateTime::from_millis(children.timestamp.unwrap_or(0.0) as i64),
+            date_time: DateTime::from_millis(children.timestamp.unwrap_or(0.0) as i64 * 1000),
             entity_type: EntityType::Post, 
             id: children.id.clone(), 
             author_id: Some(children.author_id.as_ref().unwrap_or(&"".to_string()).clone()), 
