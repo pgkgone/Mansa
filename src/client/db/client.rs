@@ -1,9 +1,11 @@
-use std::{sync::Arc, borrow::Borrow};
+use std::{sync::Arc, borrow::Borrow, cell::RefCell, rc::Rc, option};
 
 use async_once::AsyncOnce;
+use error::{ErrorKind, Result};
+use futures::Future;
 use lazy_static::lazy_static;
 use log::{error, info};
-use mongodb::{Client, options::ClientOptions, error::ErrorKind};
+use mongodb::{Client, options::{ClientOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment}, error::{UNKNOWN_TRANSACTION_COMMIT_RESULT, TRANSIENT_TRANSACTION_ERROR, self}, Collection, ClientSession, change_stream::session};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
 
@@ -15,10 +17,16 @@ pub enum DATABASE {
     MANSA
 }
 
+pub type ClientSessionPtr = Rc<RefCell<ClientSession>>;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display)]
 pub enum DATABASE_COLLECTIONS {
     ENTITIES,
     PARSING_TASKS
+}
+
+pub trait DBCollection {
+    fn get_collection() -> String; 
 }
 
 pub async fn create_mongo_client(login: &str, password: &str, port: u64) -> Client {
@@ -35,6 +43,49 @@ lazy_static! {
     pub static ref MONGO_CLIENT: AsyncOnce<Arc<Client>> = AsyncOnce::new( async {
         return Arc::new(create_mongo_client("root", "example", 27017).await);
     });
+}
+
+pub async fn TRANSACTION<R, F, Fut>(func: F ) -> R
+where
+F:  Fn(ClientSession) -> Fut,
+Fut: Future<Output = (R, ClientSession)>
+{
+    let mut session: ClientSession = MONGO_CLIENT
+        .get().await
+        .start_session(None).await.expect("unable to start session");
+    let options = TransactionOptions::builder()
+        .read_concern(ReadConcern::majority())
+        .write_concern(WriteConcern::builder().w(Acknowledgment::Majority).build())
+        .build();
+    session.start_transaction(options)
+        .await
+        .expect("unable to start transaction");
+    loop {
+        let (func_result, session_r) = func(session).await;
+        session = session_r;
+        let mut commit_result = Ok(());
+        loop {
+            commit_result = session.commit_transaction().await;
+            if let Err(ref error) = commit_result {
+                if error.contains_label(UNKNOWN_TRANSACTION_COMMIT_RESULT) {
+                    continue;
+                }
+            }
+            break;
+        }
+        if let Ok(_) = commit_result {
+            return func_result;
+        }        
+    }
+}
+
+
+pub async fn get_collection<T: DBCollection>() -> Collection<T> {
+    return MONGO_CLIENT
+        .get()
+        .await
+        .database(&DATABASE::MANSA.to_string())
+        .collection::<T>(&T::get_collection());
 }
 
 pub async fn insert_if_not_empty<T>(collection: impl IntoIterator<Item = impl Borrow<T>>, database: DATABASE, database_collection: DATABASE_COLLECTIONS) 

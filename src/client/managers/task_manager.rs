@@ -1,11 +1,19 @@
-use std::{time::{SystemTime, UNIX_EPOCH}, collections::HashMap, hash::Hash, cmp::Reverse};
+use std::{time::{SystemTime, UNIX_EPOCH}, collections::HashMap, hash::Hash, cmp::Reverse, fmt::Display};
 
 use log::{error, info};
 use mongodb::bson::oid::ObjectId;
 use priority_queue::PriorityQueue;
 use serde::{Serialize, Deserialize};
+use strum::{EnumIter};
 
-use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network}, utils::time::get_timestamp, client::settings::SettingsPtr};
+use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network}, utils::time::get_timestamp, client::{settings::SettingsPtr, db::client::{DBCollection, DATABASE_COLLECTIONS}}};
+
+#[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug, EnumIter, strum::Display)]
+pub enum ParsingTaskStatus {
+    New, 
+    Processing,
+    Processed
+}
 
 #[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ParsingTask {
@@ -14,7 +22,14 @@ pub struct ParsingTask {
     pub execution_time: u64,
     pub url: String,
     pub action_type: String,
-    pub social_network: SocialNetworkEnum
+    pub social_network: SocialNetworkEnum,
+    pub status: ParsingTaskStatus
+}
+
+impl DBCollection for ParsingTask {
+    fn get_collection() -> String {
+        return DATABASE_COLLECTIONS::PARSING_TASKS.to_string();
+    }
 }
 
 pub struct TaskManager {

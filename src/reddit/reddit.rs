@@ -7,7 +7,7 @@ use log::{error, info};
 use regex::Regex;
 use reqwest::{Response, StatusCode};
 use lazy_static::{lazy_static, __Deref};
-use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, self, db::{self, entities_db}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::ParsingTask}}, utils::time::get_timestamp};
+use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, self, db::{self, entities_db}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::{ParsingTask, ParsingTaskStatus}}}, utils::time::get_timestamp};
 
 use super::data_types::{AuthResponse, Thread, RedditTaskType, RedditUrlWithPlaceholders};
 
@@ -68,7 +68,8 @@ impl SocialNetwork for Reddit {
                     execution_time: get_timestamp(), 
                     url: s, 
                     action_type: settings_task.task_type.clone(), 
-                    social_network: SocialNetworkEnum::Reddit 
+                    social_network: SocialNetworkEnum::Reddit,
+                    status: ParsingTaskStatus::New
                 }
             );
         }
@@ -171,6 +172,7 @@ impl Reddit {
                 url: RedditUrlWithPlaceholders::reddit_task_type_to_string(RedditTaskType::from_str(&parsing_task.action_type).unwrap()).to_string(Self::get_thread_from_url(&parsing_task.url) , after),
                 action_type: parsing_task.action_type.clone(),
                 social_network: SocialNetworkEnum::Reddit,
+                status: ParsingTaskStatus::New
             })
         }
         return parsing_tasks;
