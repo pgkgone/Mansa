@@ -20,7 +20,7 @@ impl RedditUrlWithPlaceholders {
     //&after=t3_p2ydga
     pub fn to_string(&self, thread: String, after: Option<String>) -> String {
         let r = self.0.replace("{THREAD}", &thread);
-        return  r.replace("{AFTER}", &after.map_or("".to_string(), |a| format!("&after={}", &a)));
+        return  r.replace("{AFTER}", &after.map_or("".to_string(), |a| format!("&after={}&limit=100", &a)));
     }
 
     pub fn reddit_task_type_to_string(task_type: RedditTaskType) -> RedditUrlWithPlaceholders {

@@ -21,22 +21,12 @@ use tokio::sync::RwLock;
 use utils::time::get_timestamp;
 use futures::{StreamExt, Stream};
 
-use crate::{utils::file_reader, generic::social_network::{SOCIAL_NETWORKS, SocialNetwork}, client::{managers::{account_manager::{AccountManagerBuilder, DistributionStrategy}, task_manager::TaskManager}, db::tasks_db::save_with_status}};
+use crate::{utils::file_reader, generic::social_network::{SOCIAL_NETWORKS, SocialNetwork}, client::{managers::{account_manager::{AccountManagerBuilder, DistributionStrategy}, task_manager::TaskManager}, db::tasks_db::{get_tasks_grouped_by_social_network, GroupedTasks}}};
 
 mod utils;
 mod client;
 mod reddit;
 mod generic;
-
-/*
-#[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ParsingTask2 {
-    pub _id: u64,
-    pub execution_time: u64,
-    pub url: u64,
-    pub action_type: u64,
-    pub social_network: SocialNetworkEnum
-}
 
 #[tokio::main]
 async fn main() -> Result<(), io::Error>{
@@ -45,26 +35,8 @@ async fn main() -> Result<(), io::Error>{
     let settings = get_settings();
     let account_manager_builder = AccountManagerBuilder::new(DistributionStrategy::NoProxy, settings.clone());
     let account_manager = Arc::new(RwLock::new(AccountManagerBuilder::auth(account_manager_builder).await));
-    let task_manager = Arc::new(RwLock::new(TaskManager::new(settings.clone())));
+    let task_manager = Arc::new(RwLock::new(TaskManager::new(settings.clone()).await));
     let parser = Parser::new(account_manager, task_manager);
     parser.start().await; 
     return Ok(())
-} */
-
-#[tokio::main]
-async fn main() -> Result<(), io::Error>{
-    let tasks = vec![
-        ParsingTask{ _id: None, execution_time: get_timestamp(), url: "http://hello.ru".to_string(), action_type: "Parse".to_string(), social_network: SocialNetworkEnum::Reddit, status: client::managers::task_manager::ParsingTaskStatus::New },
-        ParsingTask{ _id: None, execution_time: get_timestamp(), url: "http://hello.ru".to_string(), action_type: "Parse".to_string(), social_network: SocialNetworkEnum::Reddit, status: client::managers::task_manager::ParsingTaskStatus::New }
-    ];
-
-    insert_tasks(&tasks).await;
-
-    let tasks = get_tasks_sorted_by_exec_time(Limit::NoLimit).await;
-    println!("cursor got {}", tasks.len());
-    tasks.iter().for_each(|item| println!("{:#?}", item));
-
-    save_with_status(&tasks, client::managers::task_manager::ParsingTaskStatus::Processed).await;
-
-    return Ok(())
-}
+} 

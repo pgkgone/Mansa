@@ -109,3 +109,9 @@ where
         info!("successfully inserted entities in db: {}-{}", database, database_collection)
     }
 }
+
+#[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct GroupBoundaries<T> {
+    pub min: T,
+    pub max: T
+}

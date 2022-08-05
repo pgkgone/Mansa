@@ -76,7 +76,7 @@ impl SocialNetwork for Reddit {
         return Ok(processed_settings_tasks);
     }
 
-    async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>) {
+    async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>, Vec<ParsingTask>) {
 
         info!("parsing reddit task");
         //locking
@@ -99,10 +99,11 @@ impl SocialNetwork for Reddit {
         let responses = try_join_all(requests).await;
         
         if responses.is_err() {
-            return (None, Vec::new());
+            return (None, Vec::new(), Vec::new());
         }
 
-        let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
+        let mut new_parsing_tasks: Vec<ParsingTask> = Vec::new();
+        let mut errored_parsing_tasks: Vec<ParsingTask> = Vec::new();
         let mut auth_data: HttpAuthData = account.1.clone();
 
         for response in responses.unwrap() {
@@ -113,11 +114,11 @@ impl SocialNetwork for Reddit {
                 let response_body = response.json::<Thread>().await.inspect_err(|err| error!("account: {:?}, error: {}", account.0.clone(), err));
                 if response_body.is_ok() {
                     let thread = response_body.unwrap();
-                    parsing_tasks.extend(Reddit::spawn_new_tasks(&correspond_parsing_task, &thread));
+                    new_parsing_tasks.extend(Reddit::spawn_new_tasks(&correspond_parsing_task, &thread));
                     entities_db::insert_entities(&Self::get_entities(&thread)).await;
                 }
             } else {
-                parsing_tasks.push(correspond_parsing_task);
+                errored_parsing_tasks.push(correspond_parsing_task);
                 if response.status() == StatusCode::FORBIDDEN {
                     error!("TO DO: re auth if http 403!");
                 }
@@ -132,8 +133,8 @@ impl SocialNetwork for Reddit {
             }
 
         }
-
-        return (Some(auth_data), parsing_tasks);
+        error!("new_parsing_tasks size is {}", new_parsing_tasks.len());
+        return (Some(auth_data), new_parsing_tasks, errored_parsing_tasks);
     }
 }
 

@@ -6,7 +6,7 @@ use priority_queue::PriorityQueue;
 use serde::{Serialize, Deserialize};
 use strum::{EnumIter};
 
-use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network}, utils::time::get_timestamp, client::{settings::SettingsPtr, db::client::{DBCollection, DATABASE_COLLECTIONS}}};
+use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network}, utils::time::get_timestamp, client::{settings::SettingsPtr, db::{client::{DBCollection, DATABASE_COLLECTIONS}, tasks_db::insert_tasks}}};
 
 #[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug, EnumIter, strum::Display)]
 pub enum ParsingTaskStatus {
@@ -38,7 +38,7 @@ pub struct TaskManager {
 
 impl TaskManager {
 
-    pub fn new(setting: SettingsPtr) -> TaskManager {
+    pub async fn new(setting: SettingsPtr) -> TaskManager {
 
         let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
 
@@ -53,14 +53,10 @@ impl TaskManager {
             parsing_tasks.append(&mut tasks);
         }
 
-        let mut priority_queue: PriorityQueue<ParsingTask, Reverse<u64>> = PriorityQueue::with_capacity(parsing_tasks.len());
-
-        for parsing_task in parsing_tasks.iter() {
-            priority_queue.push(parsing_task.clone(), Reverse(parsing_task.execution_time));
-        }
+        insert_tasks(&parsing_tasks).await;
 
         return TaskManager { 
-            task_queue: priority_queue
+            task_queue: PriorityQueue::new()
         }
     }
 

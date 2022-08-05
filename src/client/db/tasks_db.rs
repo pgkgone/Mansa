@@ -1,9 +1,12 @@
+use std::{collections::HashMap, hash::Hash};
+
 use lazy_static::__Deref;
-use mongodb::{bson::{doc, self}, options::{FindOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment}, Cursor, ClientSession, SessionCursor, SessionCursorStream};
+use mongodb::{bson::{doc, self, Document}, options::{FindOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment}, Cursor, ClientSession, SessionCursor, SessionCursorStream};
+use serde::{Serialize, Deserialize};
 
-use crate::{generic::entity::Entity, client::managers::task_manager::{ParsingTask, ParsingTaskStatus}, utils::time::get_timestamp};
+use crate::{generic::{entity::Entity, social_network::SocialNetworkEnum}, client::managers::task_manager::{ParsingTask, ParsingTaskStatus}, utils::time::get_timestamp};
 
-use super::client::{DATABASE, DATABASE_COLLECTIONS, insert_if_not_empty, get_collection, MONGO_CLIENT, TRANSACTION, ClientSessionPtr};
+use super::client::{DATABASE, DATABASE_COLLECTIONS, insert_if_not_empty, get_collection, MONGO_CLIENT, TRANSACTION, ClientSessionPtr, GroupBoundaries};
 
 use futures::{StreamExt};
 
@@ -17,15 +20,10 @@ pub async fn insert_tasks(tasks: &Vec<ParsingTask>) {
     insert_if_not_empty::<ParsingTask>(tasks, DATABASE::MANSA, DATABASE_COLLECTIONS::PARSING_TASKS).await;
 }
 
-pub async fn save_with_status(tasks: &Vec<ParsingTask>, status: ParsingTaskStatus) {
-    let ids: Vec<bson::oid::ObjectId> = tasks
-        .iter()
-        .filter(|&i| i._id.is_some())
-        .map(|i| i._id.unwrap())
-        .collect();
+pub async fn update_tasks_with_status(tasks: Vec<bson::oid::ObjectId>, status: ParsingTaskStatus) {
     let match_query = doc! {
         "_id" : {
-            "$in" : ids
+            "$in" : tasks
         }
     };
     let update_query = doc! {
@@ -64,6 +62,61 @@ pub async fn get_tasks_sorted_by_exec_time(limit: Limit) -> Vec<ParsingTask> {
         .await
         .expect("unable to get parsing tasks")
         .with_type::<ParsingTask>()
+        .map(|item| item.expect("unable unwrap parsing task from cursor stream"))
+        .collect()
+        .await;
+}
+
+
+#[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct GroupedTasks {
+    pub _id: GroupBoundaries<SocialNetworkEnum>,
+    pub tasks: Vec<ParsingTask>
+}
+
+impl GroupedTasks {
+    pub fn to_hashmap(vec: Vec<GroupedTasks>) -> HashMap<SocialNetworkEnum, Vec<ParsingTask>> {
+        let mut map: HashMap<SocialNetworkEnum, Vec<ParsingTask>> = HashMap::new();
+        for item in vec.into_iter() {
+            map.insert(item._id.min, item.tasks);
+        }
+        return map;
+    }
+}
+
+pub async fn get_tasks_grouped_by_social_network() -> Vec<GroupedTasks> {
+    let match_query = doc! {
+        "$match": {
+            "status": ParsingTaskStatus::New.to_string(),
+            "execution_time": {
+                "$lt": get_timestamp() as i64
+            }
+        } 
+    };
+    let sort_query = doc! {
+        "$sort": {
+            "execution_time": 1
+        }
+    };
+    let bucket_query = doc! {
+        "$bucketAuto": {
+            "groupBy": "$social_network",
+            "buckets": 100,
+            "output" : {
+                "tasks": { 
+                    "$push": "$$ROOT"
+                  }
+            }
+        }
+
+    };
+    let pipeline_fetch = vec![match_query, sort_query, bucket_query]; 
+    return  get_collection::<ParsingTask>()
+        .await
+        .aggregate(pipeline_fetch, None)
+        .await
+        .expect("unable to get parsing tasks")    
+        .with_type::<GroupedTasks>()
         .map(|item| item.expect("unable unwrap parsing task from cursor stream"))
         .collect()
         .await;
