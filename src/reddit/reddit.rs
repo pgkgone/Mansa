@@ -7,8 +7,8 @@ use log::{error, info};
 use regex::Regex;
 use reqwest::{Response, StatusCode};
 use lazy_static::{lazy_static};
-use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, db::{entities_db}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::{ParsingTask, ParsingTaskStatus}}}, utils::time::get_timestamp};
-
+use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, db::{entities_db::{self, insert_with_replace}}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::{ParsingTask, ParsingTaskStatus}}}, utils::time::get_timestamp};
+use strum::IntoEnumIterator;
 use super::data_types::{AuthResponse, Thread, RedditTaskType, RedditUrlWithPlaceholders};
 
 pub struct Reddit {
@@ -61,17 +61,23 @@ impl SocialNetwork for Reddit {
         let mut processed_settings_tasks: Vec<ParsingTask> = Vec::new();
         for settings_task in tasks.iter() {
             let reddit_task_type = RedditTaskType::from_str(&settings_task.task_type.clone()).expect("unable to convert settings task type to RedditTaskType");
-            let s = RedditUrlWithPlaceholders::reddit_task_type_to_string(reddit_task_type).to_string(settings_task.props.get("thread").expect("unable to find thread prop").to_string(), None);
-            processed_settings_tasks.push(
-                ParsingTask { 
-                    _id: None,
-                    execution_time: get_timestamp(), 
-                    url: s, 
-                    action_type: settings_task.task_type.clone(), 
-                    social_network: SocialNetworkEnum::Reddit,
-                    status: ParsingTaskStatus::New
-                }
-            );
+            let reddit_url_tasks = match reddit_task_type {
+                RedditTaskType::All => Reddit::process_settings_for_all(settings_task.props.get("thread").expect("unable to find thread prop").to_string()),
+                RedditTaskType::Post => vec![],
+                task_type => todo!()//vec![RedditUrlWithPlaceholders::reddit_task_type_to_string(task_type).to_string(settings_task.props.get("thread").expect("unable to find thread prop").to_string(), None)]
+            };
+            reddit_url_tasks.iter().for_each(|item| {
+                processed_settings_tasks.push(
+                    ParsingTask { 
+                        _id: None,
+                        execution_time: get_timestamp(), 
+                        url: item.1.clone(), 
+                        action_type: item.0.to_string(), 
+                        social_network: SocialNetworkEnum::Reddit,
+                        status: ParsingTaskStatus::New
+                    }
+                );
+            });
         }
         return Ok(processed_settings_tasks);
     }
@@ -115,7 +121,7 @@ impl SocialNetwork for Reddit {
                 if response_body.is_ok() {
                     let thread = response_body.unwrap();
                     new_parsing_tasks.extend(Reddit::spawn_new_tasks(&correspond_parsing_task, &thread));
-                    entities_db::insert_entities(&Self::get_entities(&thread)).await;
+                    insert_with_replace(&Self::get_entities(&thread)).await;
                 }
             } else {
                 errored_parsing_tasks.push(correspond_parsing_task);
@@ -138,6 +144,22 @@ impl SocialNetwork for Reddit {
 }
 
 impl Reddit {
+    fn process_settings_for_all(thread: String) -> Vec<(RedditTaskType, String)> {
+        let mut urls: Vec<(RedditTaskType, String)> = Vec::new();
+        for item in RedditTaskType::iter() {
+            match item {
+                RedditTaskType::ThreadNew => urls.push((RedditTaskType::ThreadNew, RedditUrlWithPlaceholders::reddit_task_type_to_string(RedditTaskType::ThreadNew).to_string(thread.clone(), None))),
+                RedditTaskType::ThreadTopAllTimeHistory => urls.push((RedditTaskType::ThreadTopAllTimeHistory, RedditUrlWithPlaceholders::reddit_task_type_to_string(RedditTaskType::ThreadTopAllTimeHistory).to_string(thread.clone(), None))),
+                RedditTaskType::ThreadTopYearHistory => urls.push((RedditTaskType::ThreadTopYearHistory, RedditUrlWithPlaceholders::reddit_task_type_to_string(RedditTaskType::ThreadTopYearHistory).to_string(thread.clone(), None))),
+                RedditTaskType::ThreadTopMonthHistory => urls.push((RedditTaskType::ThreadTopMonthHistory, RedditUrlWithPlaceholders::reddit_task_type_to_string(RedditTaskType::ThreadTopMonthHistory).to_string(thread.clone(), None))),
+                RedditTaskType::ThreadTopWeekHistory => urls.push((RedditTaskType::ThreadTopWeekHistory, RedditUrlWithPlaceholders::reddit_task_type_to_string(RedditTaskType::ThreadTopWeekHistory).to_string(thread.clone(), None))),
+                _ => {}
+            }
+        }
+        return urls;
+
+    }
+
     fn parse_limits_from_header(response: &Response) -> (u64, u64, usize) {
         //Sun, 31 Jul 2022 00:01:30 GMT
         let timestamp: u64 = response
@@ -166,6 +188,7 @@ impl Reddit {
         let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
         let after = thread.data.after.clone();
         if after.is_some() {
+            info!("1 {}", &parsing_task.action_type);
             parsing_tasks.push(ParsingTask {
                 _id: None,
                 execution_time: get_timestamp(),

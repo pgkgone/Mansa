@@ -1,6 +1,6 @@
-use std::{sync::{Arc}, collections::HashMap, thread, time::Duration};
+use std::{sync::{Arc}, collections::HashMap, thread, time::Duration, process::Output};
 
-use futures::join;
+use futures::{join, Future, future::{try_join_all, join_all}};
 use log::{info, debug};
 
 use crate::{generic::social_network::{dispatch_social_network_async, SocialNetworkEnum}, client::{managers::task_manager::ParsingTask, db::tasks_db::{get_tasks_grouped_by_social_network, GroupedTasks, insert_tasks, update_tasks_with_status}}};
@@ -60,8 +60,10 @@ impl Parser {
             crate::client::managers::task_manager::ParsingTaskStatus::New
         ).await;
 
-        for accounts in accounts.iter() {
-            tokio::spawn(
+
+        let mut parsing_tasks = Vec::new();
+        for accounts in accounts.iter_mut() {
+            parsing_tasks.push(
                 Self::parse_tasks(
                     self.account_manager.clone(), 
                     self.task_manager.clone(), 
@@ -69,6 +71,8 @@ impl Parser {
                     tasks.get(accounts.0).unwrap().clone())
                 );
         }
+
+        join_all(parsing_tasks).await;
 
         thread::sleep(Duration::from_millis(1000));
 

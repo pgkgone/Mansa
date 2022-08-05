@@ -1,8 +1,12 @@
+use std::error;
+
+use log::info;
 use serde::{Serialize, Deserialize};
 use strum::{EnumIter, EnumString, Display};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display, EnumString)]
 pub enum RedditTaskType {
+    All,
     ThreadNew,
     ThreadTopAllTimeHistory, 
     ThreadTopYearHistory,
@@ -14,6 +18,7 @@ pub enum RedditTaskType {
 pub struct RedditUrlWithPlaceholders(pub String);
 
 impl RedditUrlWithPlaceholders {
+
     //&after=t3_p2ydga
     pub fn to_string(&self, thread: String, after: Option<String>) -> String {
         let r = self.0.replace("{THREAD}", &thread);
@@ -21,6 +26,7 @@ impl RedditUrlWithPlaceholders {
     }
 
     pub fn reddit_task_type_to_string(task_type: RedditTaskType) -> RedditUrlWithPlaceholders {
+        info!("{}", task_type);
         match task_type {
             RedditTaskType::ThreadNew => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/new.json?{AFTER}".to_string()),
             RedditTaskType::ThreadTopAllTimeHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=all{AFTER}".to_string()),
@@ -28,8 +34,10 @@ impl RedditUrlWithPlaceholders {
             RedditTaskType::ThreadTopMonthHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=month{AFTER}".to_string()),
             RedditTaskType::ThreadTopWeekHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=week{AFTER}".to_string()),
             RedditTaskType::Post => todo!(),
+            _ => todo!()
         }
     }
+    
 }
 
 

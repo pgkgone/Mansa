@@ -5,7 +5,7 @@ use error::{ErrorKind};
 use futures::Future;
 use lazy_static::lazy_static;
 use log::{error, info};
-use mongodb::{Client, options::{ClientOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment}, error::{UNKNOWN_TRANSACTION_COMMIT_RESULT, TRANSIENT_TRANSACTION_ERROR, self}, Collection, ClientSession, change_stream::session};
+use mongodb::{Client, options::{ClientOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment, InsertManyOptions}, error::{UNKNOWN_TRANSACTION_COMMIT_RESULT, TRANSIENT_TRANSACTION_ERROR, self}, Collection, ClientSession, change_stream::session};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
 
@@ -90,6 +90,7 @@ pub async fn insert_if_not_empty<T>(collection: impl IntoIterator<Item = impl Bo
 where
     T: Serialize
 {
+
     let r = MONGO_CLIENT
         .get()
         .await

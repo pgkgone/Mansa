@@ -1,47 +1,50 @@
 use mongodb::bson::{oid::ObjectId, DateTime};
 use serde::{Serialize, Deserialize};
 
-use crate::reddit::data_types::{Children};
+use crate::{reddit::data_types::{Children}, client::db::client::{DBCollection, DATABASE_COLLECTIONS}};
 
 use super::social_network::SocialNetworkEnum;
-#[derive(Debug, Serialize, Deserialize)]
-enum EntityType {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum EntityType {
     Post,
     Message
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Entity {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    _id: Option<ObjectId>,
-    entity_type: EntityType,
-    date_time: DateTime,
+    pub entity_type: EntityType,
+    pub date_time: DateTime,
     //social network id
-    id: String,
-    source: String, 
-    source_followers: u64,
+    pub _id: String,
+    pub source: String, 
+    pub source_followers: u64,
     //social network author id
-    author_id: Option<String>,
+    pub author_id: Option<String>,
 
-    title: Option<String>,
-    content: String,
-    author_name: String,
-    social_network: SocialNetworkEnum,
+    pub title: Option<String>,
+    pub content: String,
+    pub author_name: String,
+    pub social_network: SocialNetworkEnum,
 
-    rating: Option<u64>, 
+    pub rating: Option<u64>, 
 
-    images: Vec<String>
+    pub images: Vec<String>
+}
+
+impl DBCollection for Entity {
+    fn get_collection() -> String {
+        return DATABASE_COLLECTIONS::ENTITIES.to_string();
+    }
 }
 
 impl From<&Children> for Entity {
     fn from(children: &Children) -> Self {
-        return Entity { 
-            _id: None,
+        return Entity {
+            _id: children.id.clone(), 
             source: children.source.clone().unwrap_or("".to_string()),
             source_followers: children.source_followers.unwrap_or(0),
             date_time: DateTime::from_millis(children.timestamp.unwrap_or(0.0) as i64 * 1000),
             entity_type: EntityType::Post, 
-            id: children.id.clone(), 
             author_id: Some(children.author_id.as_ref().unwrap_or(&"".to_string()).clone()), 
             title: Some(children.title.clone()), 
             content: children.self_text.clone().unwrap_or(String::from("")), 
