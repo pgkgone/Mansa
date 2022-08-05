@@ -1,15 +1,13 @@
-use std::{sync::Arc, borrow::Borrow, cell::RefCell, rc::Rc, option};
+use std::{sync::Arc, borrow::Borrow, cell::RefCell, rc::Rc};
 
 use async_once::AsyncOnce;
-use error::{ErrorKind, Result};
+use error::{ErrorKind};
 use futures::Future;
 use lazy_static::lazy_static;
 use log::{error, info};
 use mongodb::{Client, options::{ClientOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment}, error::{UNKNOWN_TRANSACTION_COMMIT_RESULT, TRANSIENT_TRANSACTION_ERROR, self}, Collection, ClientSession, change_stream::session};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
-
-use crate::{generic::entity::Entity, client::managers::task_manager::ParsingTask};
 
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display)]

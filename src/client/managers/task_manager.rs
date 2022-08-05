@@ -1,6 +1,6 @@
-use std::{time::{SystemTime, UNIX_EPOCH}, collections::HashMap, hash::Hash, cmp::Reverse, fmt::Display};
+use std::{collections::HashMap, hash::Hash, cmp::Reverse};
 
-use log::{error, info};
+use log::{info};
 use mongodb::bson::oid::ObjectId;
 use priority_queue::PriorityQueue;
 use serde::{Serialize, Deserialize};

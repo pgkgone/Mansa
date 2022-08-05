@@ -1,11 +1,11 @@
-use std::{error::Error, sync::{Arc}, collections::HashMap, thread, time::Duration};
+use std::{sync::{Arc}, collections::HashMap, thread, time::Duration};
 
 use futures::join;
-use log::{info, debug, error};
+use log::{info, debug};
 
 use crate::{generic::social_network::{dispatch_social_network_async, SocialNetworkEnum}, client::{managers::task_manager::ParsingTask, db::tasks_db::{get_tasks_grouped_by_social_network, GroupedTasks, insert_tasks, update_tasks_with_status}}};
 
-use super::{settings::{SettingsPtr, Account}, http_client::HttpAuthData, managers::{account_manager::{AccountManager, AccountPtr}, task_manager::TaskManager}};
+use super::{settings::{Account}, http_client::HttpAuthData, managers::{account_manager::{AccountManager, AccountPtr}, task_manager::TaskManager}};
 
 pub type AccountManagerPtr = Arc<tokio::sync::RwLock<AccountManager>>;
 pub type TaskManagerPtr = Arc<tokio::sync::RwLock<TaskManager>>;
@@ -95,7 +95,6 @@ impl Parser {
         }
 
         if !new_tasks.is_empty() ||  !errored_tasks.is_empty() {
-            error!("new parsing tasks 2 {}", new_tasks.len());
             let new_tasks_future = insert_tasks(&new_tasks);
             let errored_tasks_future = update_tasks_with_status(errored_tasks.iter()
                 .filter(|&item| item._id.is_some())

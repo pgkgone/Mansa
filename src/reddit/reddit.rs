@@ -6,8 +6,8 @@ use futures::future::try_join_all;
 use log::{error, info};
 use regex::Regex;
 use reqwest::{Response, StatusCode};
-use lazy_static::{lazy_static, __Deref};
-use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, self, db::{self, entities_db}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::{ParsingTask, ParsingTaskStatus}}}, utils::time::get_timestamp};
+use lazy_static::{lazy_static};
+use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, db::{entities_db}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::{ParsingTask, ParsingTaskStatus}}}, utils::time::get_timestamp};
 
 use super::data_types::{AuthResponse, Thread, RedditTaskType, RedditUrlWithPlaceholders};
 
@@ -133,7 +133,6 @@ impl SocialNetwork for Reddit {
             }
 
         }
-        error!("new_parsing_tasks size is {}", new_parsing_tasks.len());
         return (Some(auth_data), new_parsing_tasks, errored_parsing_tasks);
     }
 }
