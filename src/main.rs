@@ -15,7 +15,7 @@ mod client;
 mod reddit;
 mod generic;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 50)]
 async fn main() -> Result<(), io::Error>{
     env_logger::init();
     let settings = get_settings();

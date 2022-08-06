@@ -2,12 +2,14 @@ use std::{sync::Arc, borrow::Borrow, cell::RefCell, rc::Rc};
 
 use async_once::AsyncOnce;
 use error::{ErrorKind};
-use futures::Future;
+use futures::{Future, stream::Collect};
 use lazy_static::lazy_static;
 use log::{error, info};
 use mongodb::{Client, options::{ClientOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment, InsertManyOptions}, error::{UNKNOWN_TRANSACTION_COMMIT_RESULT, TRANSIENT_TRANSACTION_ERROR, self}, Collection, ClientSession, change_stream::session};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
+
+use crate::generic::entity::Entity;
 
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display)]
@@ -41,6 +43,10 @@ lazy_static! {
     pub static ref MONGO_CLIENT: AsyncOnce<Arc<Client>> = AsyncOnce::new( async {
         return Arc::new(create_mongo_client("root", "example", 27017).await);
     });
+
+    pub static ref ENTITY_COLLECTION: AsyncOnce<Arc<Collection<Entity>>> = AsyncOnce::new( async {
+        return Arc::new(get_collection::<Entity>().await);
+    }); 
 }
 
 pub async fn TRANSACTION<R, F, Fut>(func: F ) -> R

@@ -29,7 +29,7 @@ lazy_static! {
 #[async_trait]
 pub trait SocialNetwork {
     async fn auth(&self, account_ptr: AccountPtr, client_ptr: ReqwestClientPtr) -> Result<HttpAuthData, Box<dyn Error + Send + Sync>>;
-    async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>, Vec<ParsingTask>);
+    async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>);
     fn process_settings_tasks(&self, tasks: &Vec<ParsingTaskSettings>) -> Result<Vec<ParsingTask>, Box<dyn Error>>; 
 }
 

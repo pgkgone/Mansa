@@ -1,16 +1,15 @@
-use std::{error::Error, str::FromStr, collections::HashMap};
+use std::{error::Error, str::FromStr, collections::HashMap, thread};
 
 use async_trait::async_trait;
 use chrono::DateTime;
-use futures::future::try_join_all;
+use futures::{future::{try_join_all, join_all}, FutureExt, TryFutureExt};
 use log::{error, info};
 use regex::Regex;
 use reqwest::{Response, StatusCode};
-use lazy_static::{lazy_static};
-use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, db::{entities_db::{self, insert_with_replace}}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::{ParsingTask, ParsingTaskStatus}}}, utils::time::get_timestamp};
+use lazy_static::{lazy_static, __Deref};
+use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity}, client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, db::{entities_db::{self, insert_with_replace}, tasks_db::update_tasks_with_status}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::{ParsingTask, ParsingTaskStatus}}}, utils::time::get_timestamp};
 use strum::IntoEnumIterator;
 use super::data_types::{AuthResponse, Thread, RedditTaskType, RedditUrlWithPlaceholders};
-
 pub struct Reddit {
     pub auth_url: String
 }
@@ -82,6 +81,50 @@ impl SocialNetwork for Reddit {
         return Ok(processed_settings_tasks);
     }
 
+    async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>) {
+        info!("parsing reddit task");
+        let mut account_manager_lock = account_manager_ptr.write().await;
+        let client = account_manager_lock.get_client(account.0.clone()).unwrap().clone();
+        drop(account_manager_lock);
+        let requests = parsing_task.into_iter().map(
+            move |task| {
+                let token = account.1.token.clone();
+                return tokio::spawn(client.clone()
+                    .get(task.url.clone())
+                    .bearer_auth(token.clone())
+                    .send()
+                    .then( 
+                        move |response| Reddit::process_response(task.clone(), response, token)
+                    )
+                )
+            }    
+        );
+
+        let result = try_join_all(requests).await;
+        
+        if result.is_ok() {
+            let result = result.unwrap();
+            return (
+                result.iter()
+                    .map(|item| &item.1)
+                    .fold(None, |result, item| {
+                        //error!("item auth data {:?}", item);
+                        return match item {
+                            Some(item) if result.is_none() || item.retrieve_timestamp < result.as_ref().unwrap().retrieve_timestamp => Some(item.clone()),
+                            _ => result
+                        };
+                    }),
+                result.into_iter()
+                    .flat_map(|item| item.0)
+                    .collect()
+            );
+        } else {
+            return (None, Vec::new());
+        }
+    }
+
+    
+/*
     async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>, Vec<ParsingTask>) {
 
         info!("parsing reddit task");
@@ -96,10 +139,10 @@ impl SocialNetwork for Reddit {
 
             requests_map.insert(task.url.clone(), task);
 
-            return client.clone()
+            return tokio::spawn(client.clone()
                 .get(task.url.clone())
                 .bearer_auth(account.1.token.clone())
-                .send()
+                .send())
         });
 
         let responses = try_join_all(requests).await;
@@ -111,21 +154,22 @@ impl SocialNetwork for Reddit {
         let mut new_parsing_tasks: Vec<ParsingTask> = Vec::new();
         let mut errored_parsing_tasks: Vec<ParsingTask> = Vec::new();
         let mut auth_data: HttpAuthData = account.1.clone();
-
+        let mut insert_futures = Vec::new();
         for response in responses.unwrap() {
-            let (response_timestamp, millis_to_refresh, requests_limit) = Reddit::parse_limits_from_header(&response);
-            let correspond_parsing_task = (**requests_map.get(&response.url().to_string()).unwrap()).clone();
+            let response_uw = response.unwrap();
+            let (response_timestamp, millis_to_refresh, requests_limit) = Reddit::parse_limits_from_header(&response_uw);
+            let correspond_parsing_task = (**requests_map.get(&response_uw.url().to_string()).unwrap()).clone();
             //why it's not a enum??? reqwest WTF?
-            if response.status() == StatusCode::OK {
-                let response_body = response.json::<Thread>().await.inspect_err(|err| error!("account: {:?}, error: {}", account.0.clone(), err));
+            if response_uw.status() == StatusCode::OK {
+                let response_body = response_uw.json::<Thread>().await.inspect_err(|err| error!("account: {:?}, error: {}", account.0.clone(), err));
                 if response_body.is_ok() {
                     let thread = response_body.unwrap();
                     new_parsing_tasks.extend(Reddit::spawn_new_tasks(&correspond_parsing_task, &thread));
-                    insert_with_replace(&Self::get_entities(&thread)).await;
+                    insert_futures.push(tokio::spawn(insert_with_replace(Self::get_entities(&thread))));
                 }
             } else {
                 errored_parsing_tasks.push(correspond_parsing_task);
-                if response.status() == StatusCode::FORBIDDEN {
+                if response_uw.status() == StatusCode::FORBIDDEN {
                     error!("TO DO: re auth if http 403!");
                 }
             }
@@ -139,11 +183,45 @@ impl SocialNetwork for Reddit {
             }
 
         }
+        join_all(insert_futures).await;
         return (Some(auth_data), new_parsing_tasks, errored_parsing_tasks);
     }
+     */
 }
 
 impl Reddit {
+    async fn process_response(task: ParsingTask, response: Result<Response, reqwest::Error>, token: String) -> (Vec<ParsingTask>, Option<HttpAuthData>) {
+        if let Ok(response) = response {
+            let (response_timestamp, millis_to_refresh, requests_limit) = Reddit::parse_limits_from_header(&response);
+            let mut new_parsing_tasks: Vec<ParsingTask> = Vec::new();
+            if response.status() == StatusCode::OK {
+                let response_body = response.json::<Thread>().await;
+                if response_body.is_ok() {
+                    let thread = response_body.unwrap();
+                    new_parsing_tasks.extend(Reddit::spawn_new_tasks(&task, &thread));
+                    insert_with_replace(Self::get_entities(thread)).await;
+                } 
+            } else {
+                update_tasks_with_status(vec![task._id.unwrap()], ParsingTaskStatus::New).await;
+                if response.status() == StatusCode::FORBIDDEN {
+                    error!("TO DO: re auth if http 403!");
+                }
+            }
+            return (
+                new_parsing_tasks,
+                Some(HttpAuthData{ 
+                    token: token, 
+                    retrieve_timestamp: response_timestamp, 
+                    millis_to_refresh, 
+                    requests_limit 
+                })
+            );
+        } else {
+            return (Vec::new(), None);
+        }
+
+    }
+
     fn process_settings_for_all(thread: String) -> Vec<(RedditTaskType, String)> {
         let mut urls: Vec<(RedditTaskType, String)> = Vec::new();
         for item in RedditTaskType::iter() {
@@ -188,7 +266,7 @@ impl Reddit {
         let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
         let after = thread.data.after.clone();
         if after.is_some() {
-            info!("1 {}", &parsing_task.action_type);
+            info!("1 {} {:?}", &parsing_task.action_type, thread::current().id());
             parsing_tasks.push(ParsingTask {
                 _id: None,
                 execution_time: get_timestamp(),
@@ -209,11 +287,9 @@ impl Reddit {
         return format!("{}{}", &c[1], &c[2])
     }
 
-    fn get_entities(thread: &Thread) -> Vec<Entity> {
+    fn get_entities(thread: Thread) -> Vec<Entity> {
         let mut entities: Vec<Entity> = Vec::new();
-        for post in thread.data.children.iter().map(|v| &v.data) {
-            entities.push(post.into());
-        }
+        thread.data.children.into_iter().for_each(|item| entities.push(item.data.into()));
         return entities;
     }
 }

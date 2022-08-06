@@ -1,13 +1,16 @@
 use std::{sync::{Arc}, collections::HashMap, thread, time::Duration, process::Output};
 
 use futures::{join, Future, future::{try_join_all, join_all}};
-use log::{info, debug};
+use log::{info, debug, error};
 
 use crate::{generic::social_network::{dispatch_social_network_async, SocialNetworkEnum}, client::{managers::task_manager::ParsingTask, db::tasks_db::{get_tasks_grouped_by_social_network, GroupedTasks, insert_tasks, update_tasks_with_status}}};
 
 use super::{settings::{Account}, http_client::HttpAuthData, managers::{account_manager::{AccountManager, AccountPtr}, task_manager::TaskManager}};
 
+use std::sync::RwLock;
+
 pub type AccountManagerPtr = Arc<tokio::sync::RwLock<AccountManager>>;
+
 pub type TaskManagerPtr = Arc<tokio::sync::RwLock<TaskManager>>;
 
 pub struct Parser {
@@ -61,15 +64,17 @@ impl Parser {
         ).await;
 
 
+        debug!("parsing num of tasks: {}, num of accounts: {}", tasks.len(), accounts.len());
+
         let mut parsing_tasks = Vec::new();
         for accounts in accounts.iter_mut() {
-            parsing_tasks.push(
+            parsing_tasks.push(tokio::spawn(
                 Self::parse_tasks(
                     self.account_manager.clone(), 
                     self.task_manager.clone(), 
                     accounts.1.clone(), 
                     tasks.get(accounts.0).unwrap().clone())
-                );
+                ));
         }
 
         join_all(parsing_tasks).await;
@@ -81,14 +86,14 @@ impl Parser {
 
     async fn parse_tasks(account_manager_ptr: AccountManagerPtr, task_manager_ptr: TaskManagerPtr, account: (AccountPtr, HttpAuthData), tasks_to_parse: Vec<ParsingTask>) {
         info!("start parsing task");
-        let (new_auth_data, new_tasks, errored_tasks): (Option<HttpAuthData>, Vec<ParsingTask>, Vec<ParsingTask>) = dispatch_social_network_async(
+        let (new_auth_data, new_tasks): (Option<HttpAuthData>, Vec<ParsingTask>) = dispatch_social_network_async(
             (account_manager_ptr.clone(), account.clone(), tasks_to_parse),
             account.0.social_network,
             async move |data, network_ptr| {
                 return network_ptr.parse(data.0, data.1, data.2).await;
             })
             .await;
-
+        error!("{:?}", new_auth_data);
         if new_auth_data.is_some() {
             //locking
             let http_uw = new_auth_data.unwrap();
@@ -98,15 +103,8 @@ impl Parser {
             account_manager_locked.add_account(account.0.clone(), http_uw);
         }
 
-        if !new_tasks.is_empty() ||  !errored_tasks.is_empty() {
-            let new_tasks_future = insert_tasks(&new_tasks);
-            let errored_tasks_future = update_tasks_with_status(errored_tasks.iter()
-                .filter(|&item| item._id.is_some())
-                .map(|item| item._id.unwrap())
-                .collect(), 
-                crate::client::managers::task_manager::ParsingTaskStatus::New
-            );
-            join!(new_tasks_future, errored_tasks_future);
+        if !new_tasks.is_empty() {
+            insert_tasks(&new_tasks).await;
         }
     
 

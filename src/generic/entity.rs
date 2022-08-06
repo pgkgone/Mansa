@@ -37,8 +37,8 @@ impl DBCollection for Entity {
     }
 }
 
-impl From<&Children> for Entity {
-    fn from(children: &Children) -> Self {
+impl From<Children> for Entity {
+    fn from(children: Children) -> Self {
         return Entity {
             _id: children.id.clone(), 
             source: children.source.clone().unwrap_or("".to_string()),

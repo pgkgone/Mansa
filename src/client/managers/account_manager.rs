@@ -32,21 +32,15 @@ impl AccountManager {
 
         let account = social_network_accounts.pop();
 
-        if account.is_some() {
-            let account_uw = account.unwrap();
-            if account_uw.1.requests_limit <= 0 {
-                if account_uw.1.retrieve_timestamp + account_uw.1.millis_to_refresh < current_timestamp {
-                    return Some((account_uw.0, account_uw.1));
-                } else {
-                    social_network_accounts.push(account_uw.0, account_uw.1);
-                    return None;
-                }
-            } else {
-                return Some((account_uw.0, account_uw.1));
+        return match account {
+            Some(acc) if acc.1.requests_limit > 0 => Some((acc.0, acc.1)),
+            Some(acc) if acc.1.retrieve_timestamp + acc.1.millis_to_refresh < current_timestamp => Some((acc.0, acc.1)),
+            Some(acc) => {
+                social_network_accounts.push(acc.0, acc.1);
+                return None;
             }
-        } else {
-            return None;
-        }
+            _ => None,
+        };
     }
 
     pub fn get_accounts(&mut self, social_networks: &Vec<SocialNetworkEnum>) -> HashMap<SocialNetworkEnum, (AccountPtr, HttpAuthData)> {

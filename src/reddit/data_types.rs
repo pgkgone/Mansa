@@ -1,4 +1,4 @@
-use std::error;
+use std::{error, thread};
 
 use log::info;
 use serde::{Serialize, Deserialize};
@@ -26,7 +26,7 @@ impl RedditUrlWithPlaceholders {
     }
 
     pub fn reddit_task_type_to_string(task_type: RedditTaskType) -> RedditUrlWithPlaceholders {
-        info!("{}", task_type);
+        info!("{} {:?}", task_type, thread::current().id());
         match task_type {
             RedditTaskType::ThreadNew => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/new.json?{AFTER}".to_string()),
             RedditTaskType::ThreadTopAllTimeHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=all{AFTER}".to_string()),
@@ -37,7 +37,7 @@ impl RedditUrlWithPlaceholders {
             _ => todo!()
         }
     }
-    
+
 }
 
 
@@ -50,25 +50,25 @@ pub struct AuthResponse {
     pub scope: String
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Thread {
     pub kind: Option<String>, 
     pub data: ThreadMeta
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ThreadMeta {
     pub after: Option<String> ,
     pub children: Vec<ChildrenMeta>
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChildrenMeta {
     pub kind: Option<String>, 
     pub data: Children
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct  Children {
     pub kind: Option<String>, 
     #[serde(rename = "name")]
@@ -91,17 +91,17 @@ pub struct  Children {
 
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Preview {
     pub images: Vec<Image>
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Image {
     pub source: Source
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Source {
     pub url: String
 }
