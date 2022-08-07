@@ -2,9 +2,9 @@ use std::{sync::Arc, thread};
 
 use futures::future::join_all;
 use log::info;
-use mongodb::{bson::{doc, Document, self}, options::{UpdateOptions, FindOneAndUpdateOptions}};
+use mongodb::{bson::{doc, self}, options::{UpdateOptions, FindOneAndUpdateOptions}};
 
-use crate::{generic::entity::{Entity, self}, client::managers::task_manager::ParsingTask};
+use crate::{generic::entity::{Entity, self}};
 
 use super::client::{DATABASE, DATABASE_COLLECTIONS, insert_if_not_empty, get_collection, ENTITY_COLLECTION};
 

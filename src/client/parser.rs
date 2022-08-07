@@ -3,7 +3,7 @@ use std::{sync::{Arc}, collections::HashMap, thread, time::Duration, process::Ou
 use futures::{join, Future, future::{try_join_all, join_all}};
 use log::{info, debug, error};
 
-use crate::{generic::social_network::{dispatch_social_network_async, SocialNetworkEnum}, client::{managers::task_manager::ParsingTask, db::tasks_db::{get_tasks_grouped_by_social_network, GroupedTasks, insert_tasks, update_tasks_with_status}}};
+use crate::{generic::{social_network::{dispatch_social_network_async, SocialNetworkEnum}, parsing_tasks::{ParsingTaskStatus, ParsingTask}}, client::{db::tasks_db::{get_tasks_grouped_by_social_network, GroupedTasks, insert_tasks, update_tasks_with_status}}};
 
 use super::{settings::{Account}, http_client::HttpAuthData, managers::{account_manager::{AccountManager, AccountPtr}, task_manager::TaskManager}};
 
@@ -43,7 +43,7 @@ impl Parser {
             .filter(|&item| item._id.is_some())
             .map(|item| item._id.unwrap())
             .collect(), 
-            crate::client::managers::task_manager::ParsingTaskStatus::Processed
+            ParsingTaskStatus::Processed
         ).await;
         let mut tasks = GroupedTasks::to_hashmap( tasks);
 
@@ -60,7 +60,7 @@ impl Parser {
             .filter(|&item| item._id.is_some())
             .map(|item| item._id.unwrap())
             .collect(),
-            crate::client::managers::task_manager::ParsingTaskStatus::New
+            ParsingTaskStatus::New
         ).await;
 
 
@@ -86,6 +86,7 @@ impl Parser {
 
     async fn parse_tasks(account_manager_ptr: AccountManagerPtr, task_manager_ptr: TaskManagerPtr, account: (AccountPtr, HttpAuthData), tasks_to_parse: Vec<ParsingTask>) {
         info!("start parsing task");
+        error!("old auth data {:?}", account.1);
         let (new_auth_data, new_tasks): (Option<HttpAuthData>, Vec<ParsingTask>) = dispatch_social_network_async(
             (account_manager_ptr.clone(), account.clone(), tasks_to_parse),
             account.0.social_network,

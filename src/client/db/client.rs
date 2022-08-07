@@ -2,10 +2,10 @@ use std::{sync::Arc, borrow::Borrow, cell::RefCell, rc::Rc};
 
 use async_once::AsyncOnce;
 use error::{ErrorKind};
-use futures::{Future, stream::Collect};
+use futures::{Future};
 use lazy_static::lazy_static;
 use log::{error, info};
-use mongodb::{Client, options::{ClientOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment, InsertManyOptions}, error::{UNKNOWN_TRANSACTION_COMMIT_RESULT, TRANSIENT_TRANSACTION_ERROR, self}, Collection, ClientSession, change_stream::session};
+use mongodb::{Client, options::{ClientOptions, TransactionOptions, ReadConcern, WriteConcern, Acknowledgment}, error::{UNKNOWN_TRANSACTION_COMMIT_RESULT, TRANSIENT_TRANSACTION_ERROR, self}, Collection, ClientSession};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, Display};
 

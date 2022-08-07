@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 use mongodb::{bson::{doc, self}};
 use serde::{Serialize, Deserialize};
 
-use crate::{generic::{ social_network::SocialNetworkEnum}, client::managers::task_manager::{ParsingTask, ParsingTaskStatus}, utils::time::get_timestamp};
+use crate::{generic::{ social_network::SocialNetworkEnum, parsing_tasks::{ParsingTask, ParsingTaskStatus}}, utils::time::get_timestamp};
 
 use super::client::{DATABASE, DATABASE_COLLECTIONS, insert_if_not_empty, get_collection, MONGO_CLIENT, TRANSACTION, ClientSessionPtr, GroupBoundaries};
 

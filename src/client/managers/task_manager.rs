@@ -6,31 +6,9 @@ use priority_queue::PriorityQueue;
 use serde::{Serialize, Deserialize};
 use strum::{EnumIter};
 
-use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network}, utils::time::get_timestamp, client::{settings::SettingsPtr, db::{client::{DBCollection, DATABASE_COLLECTIONS}, tasks_db::insert_tasks}}};
+use crate::{generic::{social_network::{SocialNetworkEnum, dispatch_social_network}, parsing_tasks::ParsingTask}, utils::time::get_timestamp, client::{settings::SettingsPtr, db::{client::{DBCollection, DATABASE_COLLECTIONS}, tasks_db::insert_tasks}}};
 
-#[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug, EnumIter, strum::Display)]
-pub enum ParsingTaskStatus {
-    New, 
-    Processing,
-    Processed
-}
 
-#[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ParsingTask {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub _id: Option<ObjectId>,
-    pub execution_time: u64,
-    pub url: String,
-    pub action_type: String,
-    pub social_network: SocialNetworkEnum,
-    pub status: ParsingTaskStatus
-}
-
-impl DBCollection for ParsingTask {
-    fn get_collection() -> String {
-        return DATABASE_COLLECTIONS::PARSING_TASKS.to_string();
-    }
-}
 
 pub struct TaskManager {
     pub task_queue: PriorityQueue<ParsingTask, Reverse<u64>>
@@ -43,11 +21,11 @@ impl TaskManager {
         let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
 
         for social_network_settings in setting.social_network_settings.iter() {
-
+            
             let mut tasks = dispatch_social_network(
                 &social_network_settings.parsing_tasks, 
                 social_network_settings.social_network, 
-                |parsing_tasks, social_network_ptr| social_network_ptr.process_settings_tasks(&parsing_tasks) )
+                |parsing_tasks, social_network_ptr| social_network_ptr.process_settings_tasks(parsing_tasks) )
                 .expect("unable to process tasks from settings file");
             info!("{:#?}", tasks);
             parsing_tasks.append(&mut tasks);

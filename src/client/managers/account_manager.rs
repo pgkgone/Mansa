@@ -34,7 +34,7 @@ impl AccountManager {
 
         return match account {
             Some(acc) if acc.1.requests_limit > 0 => Some((acc.0, acc.1)),
-            Some(acc) if acc.1.retrieve_timestamp + acc.1.millis_to_refresh < current_timestamp => Some((acc.0, acc.1)),
+            Some(acc) if (acc.1.retrieve_timestamp + acc.1.millis_to_refresh) * 1000 < current_timestamp => Some((acc.0, acc.1)),
             Some(acc) => {
                 social_network_accounts.push(acc.0, acc.1);
                 return None;

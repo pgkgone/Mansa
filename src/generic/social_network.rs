@@ -5,7 +5,9 @@ use lazy_static::lazy_static;
 use log::{error, info};
 use serde::{Serialize, Deserialize};
 use strum::{EnumIter, Display};
-use crate::{client::{http_client::HttpAuthData, settings::ParsingTaskSettings, parser::AccountManagerPtr, managers::{account_manager::{AccountPtr, ReqwestClientPtr}, task_manager::ParsingTask}}, reddit::reddit::Reddit};
+use crate::{client::{http_client::HttpAuthData, parser::AccountManagerPtr, managers::{account_manager::{AccountPtr, ReqwestClientPtr}}}, reddit::reddit::Reddit};
+
+use super::parsing_tasks::{ParsingTaskParameters, ParsingTask};
 
 
 
@@ -30,7 +32,7 @@ lazy_static! {
 pub trait SocialNetwork {
     async fn auth(&self, account_ptr: AccountPtr, client_ptr: ReqwestClientPtr) -> Result<HttpAuthData, Box<dyn Error + Send + Sync>>;
     async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>);
-    fn process_settings_tasks(&self, tasks: &Vec<ParsingTaskSettings>) -> Result<Vec<ParsingTask>, Box<dyn Error>>; 
+    fn process_settings_tasks(&self, tasks: &Vec<ParsingTaskParameters>) -> Result<Vec<ParsingTask>, Box<dyn Error>>; 
 }
 
 pub fn dispatch_social_network<T, R, F>(
