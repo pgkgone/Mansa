@@ -1,12 +1,16 @@
-use std::{error::Error, sync::{Arc}, collections::HashMap, thread, time::Duration};
+use std::{sync::{Arc}, collections::HashMap, thread, time::Duration, process::Output};
 
-use log::{info, debug};
+use futures::{join, Future, future::{try_join_all, join_all}};
+use log::{info, debug, error};
 
-use crate::{generic::social_network::{dispatch_social_network_async, SocialNetworkEnum}, client::managers::task_manager::ParsingTask};
+use crate::{generic::{social_network::{dispatch_social_network_async, SocialNetworkEnum}, parsing_tasks::{ParsingTaskStatus, ParsingTask}}, client::{db::tasks_db::{get_tasks_grouped_by_social_network, GroupedTasks, insert_tasks, update_tasks_with_status}}};
 
-use super::{settings::{SettingsPtr, Account}, http_client::HttpAuthData, managers::{account_manager::{AccountManager, AccountPtr}, task_manager::TaskManager}};
+use super::{settings::{Account}, http_client::HttpAuthData, managers::{account_manager::{AccountManager, AccountPtr}, task_manager::TaskManager}};
+
+use std::sync::RwLock;
 
 pub type AccountManagerPtr = Arc<tokio::sync::RwLock<AccountManager>>;
+
 pub type TaskManagerPtr = Arc<tokio::sync::RwLock<TaskManager>>;
 
 pub struct Parser {
@@ -31,14 +35,17 @@ impl Parser {
     }
 
     async fn parse(&self) {
-
-        let mut task_manager_ptr = self.task_manager.clone();
         let mut account_manager_ptr = self.account_manager.clone();
 
-        debug!("locking task manager 1");
-        let mut task_manager_locked = self.task_manager.write().await;
-        let mut tasks = task_manager_locked.get_grouped_tasks();
-        drop(task_manager_locked);
+        let tasks = get_tasks_grouped_by_social_network().await;
+        update_tasks_with_status(tasks.iter()
+            .flat_map(|item| &item.tasks)
+            .filter(|&item| item._id.is_some())
+            .map(|item| item._id.unwrap())
+            .collect(), 
+            ParsingTaskStatus::Processed
+        ).await;
+        let mut tasks = GroupedTasks::to_hashmap( tasks);
 
         let social_nets_with_tasks: Vec<SocialNetworkEnum> = tasks.keys().cloned().collect();
 
@@ -49,20 +56,28 @@ impl Parser {
 
         let unused_tasks = Self::get_unused_tasks(&mut accounts, &mut tasks);
 
-        debug!("locking task manager 2");
-        let mut task_manager_locked = self.task_manager.write().await;
-        task_manager_locked.add_parsing_tasks(unused_tasks);
-        drop(task_manager_locked);
+        update_tasks_with_status(unused_tasks.iter()
+            .filter(|&item| item._id.is_some())
+            .map(|item| item._id.unwrap())
+            .collect(),
+            ParsingTaskStatus::New
+        ).await;
 
-        for accounts in accounts.iter() {
-            tokio::spawn(
+
+        debug!("parsing num of tasks: {}, num of accounts: {}", tasks.len(), accounts.len());
+
+        let mut parsing_tasks = Vec::new();
+        for accounts in accounts.iter_mut() {
+            parsing_tasks.push(tokio::spawn(
                 Self::parse_tasks(
                     self.account_manager.clone(), 
                     self.task_manager.clone(), 
                     accounts.1.clone(), 
                     tasks.get(accounts.0).unwrap().clone())
-                );
+                ));
         }
+
+        join_all(parsing_tasks).await;
 
         thread::sleep(Duration::from_millis(1000));
 
@@ -71,27 +86,26 @@ impl Parser {
 
     async fn parse_tasks(account_manager_ptr: AccountManagerPtr, task_manager_ptr: TaskManagerPtr, account: (AccountPtr, HttpAuthData), tasks_to_parse: Vec<ParsingTask>) {
         info!("start parsing task");
-        let result: (Option<HttpAuthData>, Vec<ParsingTask>) = dispatch_social_network_async(
+        error!("old auth data {:?}", account.1);
+        let (new_auth_data, new_tasks): (Option<HttpAuthData>, Vec<ParsingTask>) = dispatch_social_network_async(
             (account_manager_ptr.clone(), account.clone(), tasks_to_parse),
             account.0.social_network,
             async move |data, network_ptr| {
                 return network_ptr.parse(data.0, data.1, data.2).await;
             })
             .await;
-
-        if result.0.is_some() {
+        error!("{:?}", new_auth_data);
+        if new_auth_data.is_some() {
             //locking
-            let http_uw = result.0.unwrap();
+            let http_uw = new_auth_data.unwrap();
             let mut account_manager_locked = account_manager_ptr.write().await;
             //do we really need this?
             account_manager_locked.update_auth_data(account.0.clone(), &http_uw);
             account_manager_locked.add_account(account.0.clone(), http_uw);
         }
 
-        if !result.1.is_empty() {
-            //locking
-            let mut task_manager_locked = task_manager_ptr.write().await;
-            task_manager_locked.add_parsing_tasks(result.1);
+        if !new_tasks.is_empty() {
+            insert_tasks(&new_tasks).await;
         }
     
 

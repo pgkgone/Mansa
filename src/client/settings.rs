@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs::{self, File}, io::BufReader, rc::Rc, sync::Arc};
+use std::{collections::HashMap, fs::{self, File}, io::BufReader, sync::Arc};
 
 use derivative::Derivative;
 use log::info;
 use serde::{Serialize, Deserialize};
 use strum::IntoEnumIterator;
 
-use crate::{generic::social_network::SocialNetworkEnum};
+use crate::{generic::{social_network::SocialNetworkEnum, parsing_tasks::{RedditParsingParameters, ParsingTaskParameters}}};
 
 pub type SettingsPtr = Arc<Settings>;
 
@@ -43,19 +43,12 @@ impl From<&Proxy> for reqwest::Proxy {
     }
 }
 
-#[derive(Serialize, Deserialize, Derivative, Debug)]
-#[derivative(PartialEq, Hash, Eq)]
-pub struct ParsingTaskSettings {
-    pub task_type: String, 
-    #[derivative(Hash="ignore")]
-    pub props: HashMap<String, String>
-}
-
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug)]
 pub struct SocialNetworkSettings {
+    pub social_network: SocialNetworkEnum,
     pub accounts: Vec<Account>,
-    pub parsing_tasks: Vec<ParsingTaskSettings>,
-    pub social_network: SocialNetworkEnum
+    pub parsing_tasks: Vec<ParsingTaskParameters>
+    
 }
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug)]
@@ -81,7 +74,6 @@ enum SettingsPathType {
 impl SettingsPathType {
 
     fn test(path: String) -> SettingsPathType {
-
         if path.contains("general_settings.json") {
             return SettingsPathType::GeneralSettingsPath(path);
         } else if SocialNetworkEnum::iter().any(|enumName| path.contains(&enumName.to_string())){
@@ -89,7 +81,6 @@ impl SettingsPathType {
         } else {
             return SettingsPathType::OtherPath();
         }
-
     }
 
 }
@@ -116,7 +107,7 @@ pub fn get_settings() -> SettingsPtr {
             SettingsPathType::SocialNetworkSettingsPath(social_network_settings_folder) => {
                 let f = File::open(social_network_settings_folder + "/settings.json").expect(&format!("unable to open settings file of"));
                 let mut reader = BufReader::new(f);
-                social_network_settings.push(serde_json::from_reader(reader).expect("unable to parse social net settings file"));
+                social_network_settings.push(serde_json::from_reader(reader).expect("unable to parse reddit social net settings file"));
             },
 
             SettingsPathType::OtherPath() => {}

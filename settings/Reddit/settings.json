@@ -8,222 +8,221 @@
     }],
     "parsing_tasks" : [
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/bitcoin"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/ethereum"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/ethtrader"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/CryptoCurrency"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/CryptoMarkets"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/CryptoMoonShots"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/Crypto_com"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/AllCryptoBets"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/CryptoCurrencyTrading"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/cryptostreetbets"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/shitcoinmoonshots"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/binance"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/SHIBArmy"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/SafeMoon"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/cardano"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/CoinBase"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/Monero"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/ico"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/dogelon"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/litecoin"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/opensea"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/nanocurrency"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/Ripple"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/CryptoMars"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/cryptocurrencymemes"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/BitcoinBeginners"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/BitcoinMarkets"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/solana"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/algorand"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/harmony_one"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/loopringorg"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/defi"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/ledgerwallet"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
+            "Reddit": {
+                "reddit_task_type": "All",
                 "thread": "r/NFTsMarketplace"
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
-                "thread": "r/NFT"
+            "Reddit": {
+                "reddit_task_type": "All",
+                "thread": "r/NFT" 
             }
         },
         {
-            "task_type": "ThreadTopMonthHistory",
-            "props": {
-                "thread": "r/SatoshiStreetBets"
+            "Reddit": {
+                "reddit_task_type": "All",
+                "thread": "r/SatoshiStreetBets"    
             }
         }
     ],
     "social_network": "Reddit"
-
 }

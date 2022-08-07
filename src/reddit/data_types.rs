@@ -1,11 +1,9 @@
-use std::{collections::HashMap};
-
 use serde::{Serialize, Deserialize};
-use serde_json::{Value, Map};
 use strum::{EnumIter, EnumString, Display};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display, EnumString)]
 pub enum RedditTaskType {
+    All,
     ThreadNew,
     ThreadTopAllTimeHistory, 
     ThreadTopYearHistory,
@@ -14,23 +12,32 @@ pub enum RedditTaskType {
     Post
 }
 
-pub struct RedditUrlWithPlaceholders(pub String);
+impl RedditTaskType {
+    pub fn to_url(&self) -> RedditUrlWithPlaceholders {
+        match self {
+            RedditTaskType::All => {panic!("can't apply to_url to that variant");}
+            RedditTaskType::ThreadNew => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/new.json?{AFTER}".to_string())),
+            RedditTaskType::ThreadTopAllTimeHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=all{AFTER}".to_string())),
+            RedditTaskType::ThreadTopYearHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=year{AFTER}".to_string())),
+            RedditTaskType::ThreadTopMonthHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=month{AFTER}".to_string())),
+            RedditTaskType::ThreadTopWeekHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=week{AFTER}".to_string())),
+            RedditTaskType::Post => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Post("https://www.oauth.reddit.com/{THREAD}/comments/{ID}.json".to_string())),
+        }
+    }
+}
+
+pub struct RedditUrlWithPlaceholders(pub RedditUrlWithPlaceholderSourceType);
+
+pub enum RedditUrlWithPlaceholderSourceType {
+    Thread(String),
+    Post(String)
+}
 
 impl RedditUrlWithPlaceholders {
-    //&after=t3_p2ydga
-    pub fn to_string(&self, thread: String, after: Option<String>) -> String {
-        let r = self.0.replace("{THREAD}", &thread);
-        return  r.replace("{AFTER}", &after.map_or("".to_string(), |a| format!("&after={}", &a)));
-    }
-
-    pub fn reddit_task_type_to_string(task_type: RedditTaskType) -> RedditUrlWithPlaceholders {
-        match task_type {
-            RedditTaskType::ThreadNew => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/new.json?{AFTER}".to_string()),
-            RedditTaskType::ThreadTopAllTimeHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=all{AFTER}".to_string()),
-            RedditTaskType::ThreadTopYearHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=year{AFTER}".to_string()),
-            RedditTaskType::ThreadTopMonthHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=month{AFTER}".to_string()),
-            RedditTaskType::ThreadTopWeekHistory => RedditUrlWithPlaceholders("https://oauth.reddit.com/{THREAD}/top.json?t=week{AFTER}".to_string()),
-            RedditTaskType::Post => todo!(),
+    pub fn to_string(&self, thread: String, parameter: Option<String>) -> String {
+        return match &self.0 {
+            RedditUrlWithPlaceholderSourceType::Thread(template) => template.replace("{THREAD}", &thread).replace("{AFTER}", parameter.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
+            RedditUrlWithPlaceholderSourceType::Post(template) => template.replace("{THREAD}", &thread).replace("{ID}", parameter.as_ref().map_or("".to_string(), |id| format!("&after={}&limit=100", &id)).as_str()),
         }
     }
 }
@@ -45,25 +52,25 @@ pub struct AuthResponse {
     pub scope: String
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Thread {
     pub kind: Option<String>, 
     pub data: ThreadMeta
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ThreadMeta {
     pub after: Option<String> ,
     pub children: Vec<ChildrenMeta>
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChildrenMeta {
     pub kind: Option<String>, 
     pub data: Children
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct  Children {
     pub kind: Option<String>, 
     #[serde(rename = "name")]
@@ -86,17 +93,22 @@ pub struct  Children {
 
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Preview {
     pub images: Vec<Image>
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Image {
     pub source: Source
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Source {
     pub url: String
+}
+
+pub struct RedditParsingProps {
+    pub task_type: RedditTaskType,
+    pub after: Option<String>
 }

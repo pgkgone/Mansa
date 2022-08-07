@@ -1,21 +1,14 @@
-use std::{time::{SystemTime, UNIX_EPOCH}, collections::HashMap, hash::Hash, cmp::Reverse};
+use std::{collections::HashMap, hash::Hash, cmp::Reverse};
 
-use log::{error, info};
+use log::{info};
 use mongodb::bson::oid::ObjectId;
 use priority_queue::PriorityQueue;
 use serde::{Serialize, Deserialize};
+use strum::{EnumIter};
 
-use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network}, utils::time::get_timestamp, client::settings::SettingsPtr};
+use crate::{generic::{social_network::{SocialNetworkEnum, dispatch_social_network}, parsing_tasks::ParsingTask}, utils::time::get_timestamp, client::{settings::SettingsPtr, db::{client::{DBCollection, DATABASE_COLLECTIONS}, tasks_db::insert_tasks}}};
 
-#[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ParsingTask {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub _id: Option<ObjectId>,
-    pub execution_time: u64,
-    pub url: String,
-    pub action_type: String,
-    pub social_network: SocialNetworkEnum
-}
+
 
 pub struct TaskManager {
     pub task_queue: PriorityQueue<ParsingTask, Reverse<u64>>
@@ -23,29 +16,25 @@ pub struct TaskManager {
 
 impl TaskManager {
 
-    pub fn new(setting: SettingsPtr) -> TaskManager {
+    pub async fn new(setting: SettingsPtr) -> TaskManager {
 
         let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
 
         for social_network_settings in setting.social_network_settings.iter() {
-
+            
             let mut tasks = dispatch_social_network(
                 &social_network_settings.parsing_tasks, 
                 social_network_settings.social_network, 
-                |parsing_tasks, social_network_ptr| social_network_ptr.process_settings_tasks(&parsing_tasks) )
+                |parsing_tasks, social_network_ptr| social_network_ptr.process_settings_tasks(parsing_tasks) )
                 .expect("unable to process tasks from settings file");
             info!("{:#?}", tasks);
             parsing_tasks.append(&mut tasks);
         }
 
-        let mut priority_queue: PriorityQueue<ParsingTask, Reverse<u64>> = PriorityQueue::with_capacity(parsing_tasks.len());
-
-        for parsing_task in parsing_tasks.iter() {
-            priority_queue.push(parsing_task.clone(), Reverse(parsing_task.execution_time));
-        }
+        insert_tasks(&parsing_tasks).await;
 
         return TaskManager { 
-            task_queue: priority_queue
+            task_queue: PriorityQueue::new()
         }
     }
 

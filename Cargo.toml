@@ -3,6 +3,16 @@ name = "mansa"
 version = "0.1.0"
 edition = "2021"
 
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
