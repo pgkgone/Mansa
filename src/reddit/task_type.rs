@@ -1,43 +1,73 @@
 use serde::{Serialize, Deserialize};
 use strum::{EnumIter, EnumString, Display};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, Eq, Hash, PartialEq, EnumIter, Display, EnumString)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, Hash, PartialEq, EnumIter, EnumString)]
 pub enum RedditTaskType {
-    All,
-    ThreadNew,
-    ThreadTopAllTimeHistory, 
-    ThreadTopYearHistory,
-    ThreadTopMonthHistory,
-    ThreadTopWeekHistory,
-    Post
+    All{thread: String},
+    ThreadNew{thread: String, after: Option<String>},
+    ThreadTopAllTimeHistory{thread: String, after: Option<String>}, 
+    ThreadTopYearHistory{thread: String, after: Option<String>},
+    ThreadTopMonthHistory{thread: String, after: Option<String>},
+    ThreadTopWeekHistory{thread: String, after: Option<String>},
+    Post{thread: String, id: Option<String>, update_number: u64}
+}
+
+impl ToString for RedditTaskType {
+    fn to_string(&self) -> String {
+        return match self {
+            RedditTaskType::All {..} => "All".to_string(),
+            RedditTaskType::ThreadNew {..} => "ThreadNew".to_string(),
+            RedditTaskType::ThreadTopAllTimeHistory {..} => "ThreadTopAllTimeHistory".to_string(),
+            RedditTaskType::ThreadTopYearHistory {..} => "ThreadTopYearHistory".to_string(),
+            RedditTaskType::ThreadTopMonthHistory {..} => "ThreadTopMonthHistory".to_string(),
+            RedditTaskType::ThreadTopWeekHistory {..} => "ThreadTopWeekHistory".to_string(),
+            RedditTaskType::Post {..} => "Post".to_string(),
+        }
+    }
 }
 
 impl RedditTaskType {
-    pub fn to_url(&self) -> RedditUrlWithPlaceholders {
-        match self {
-            RedditTaskType::All => {panic!("can't apply to_url to that variant");}
-            RedditTaskType::ThreadNew => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/new.json?{AFTER}".to_string())),
-            RedditTaskType::ThreadTopAllTimeHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=all{AFTER}".to_string())),
-            RedditTaskType::ThreadTopYearHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=year{AFTER}".to_string())),
-            RedditTaskType::ThreadTopMonthHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=month{AFTER}".to_string())),
-            RedditTaskType::ThreadTopWeekHistory => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Thread("https://oauth.reddit.com/{THREAD}/top.json?t=week{AFTER}".to_string())),
-            RedditTaskType::Post => RedditUrlWithPlaceholders(RedditUrlWithPlaceholderSourceType::Post("https://www.oauth.reddit.com/{THREAD}/comments/{ID}.json".to_string())),
+
+    pub fn to_url(&self) -> String {
+        return match self {
+            RedditTaskType::All{thread} => {panic!("can't ToString this variant");}
+            RedditTaskType::ThreadNew{thread, after} => format!("https://oauth.reddit.com/{}/new.json?{{AFTER}}", thread)
+                .replace("{AFTER}", after.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
+            RedditTaskType::ThreadTopAllTimeHistory{thread, after} => format!("https://oauth.reddit.com/{}/top.json?t=all{{AFTER}}", thread)
+                .replace("{AFTER}", after.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
+            RedditTaskType::ThreadTopYearHistory{thread, after} => format!("https://oauth.reddit.com/{}/top.json?t=year{{AFTER}}", thread)
+                .replace("{AFTER}", after.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
+            RedditTaskType::ThreadTopMonthHistory{thread, after} => format!("https://oauth.reddit.com/{}/top.json?t=month{{AFTER}}", thread)
+                .replace("{AFTER}", after.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
+            RedditTaskType::ThreadTopWeekHistory{thread, after} => format!("https://oauth.reddit.com/{}/top.json?t=week{{AFTER}}", thread)
+                .replace("{AFTER}", after.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
+            RedditTaskType::Post{thread, id, update_number} => format!("https://www.oauth.reddit.com/{}/comments/{{ID}}.json", thread)
+            .replace("{AFTER}", id.as_ref().unwrap_or(&"".to_string()).as_str()),
+        }
+    } 
+
+    pub fn get_thread(&self) -> String {
+        return match self {
+            RedditTaskType::All { thread } => thread.clone(),
+            RedditTaskType::ThreadNew { thread, after } => thread.clone(),
+            RedditTaskType::ThreadTopAllTimeHistory { thread, after } => thread.clone(),
+            RedditTaskType::ThreadTopYearHistory { thread, after } => thread.clone(),
+            RedditTaskType::ThreadTopMonthHistory { thread, after } => thread.clone(),
+            RedditTaskType::ThreadTopWeekHistory { thread, after } => thread.clone(),
+            RedditTaskType::Post { thread, id, update_number } => thread.clone(),
         }
     }
-}
 
-pub struct RedditUrlWithPlaceholders(pub RedditUrlWithPlaceholderSourceType);
-
-pub enum RedditUrlWithPlaceholderSourceType {
-    Thread(String),
-    Post(String)
-}
-
-impl RedditUrlWithPlaceholders {
-    pub fn to_string(&self, thread: String, parameter: Option<String>) -> String {
-        return match &self.0 {
-            RedditUrlWithPlaceholderSourceType::Thread(template) => template.replace("{THREAD}", &thread).replace("{AFTER}", parameter.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
-            RedditUrlWithPlaceholderSourceType::Post(template) => template.replace("{THREAD}", &thread).replace("{ID}", parameter.as_ref().map_or("".to_string(), |id| format!("&after={}&limit=100", &id)).as_str()),
+    pub fn with_parameter(&self, parameter: Option<String>) -> RedditTaskType {
+        return match self {
+            RedditTaskType::All { thread } => RedditTaskType::All{thread: thread.clone() },
+            RedditTaskType::ThreadNew { thread, after } => RedditTaskType::ThreadNew { thread: thread.clone(), after: parameter },
+            RedditTaskType::ThreadTopAllTimeHistory { thread, after } => RedditTaskType::ThreadTopAllTimeHistory { thread: thread.clone(), after: parameter },
+            RedditTaskType::ThreadTopYearHistory { thread, after } => RedditTaskType::ThreadTopYearHistory { thread: thread.clone(), after: parameter },
+            RedditTaskType::ThreadTopMonthHistory { thread, after } => RedditTaskType::ThreadTopMonthHistory { thread: thread.clone(), after: parameter },
+            RedditTaskType::ThreadTopWeekHistory { thread, after } => RedditTaskType::ThreadTopWeekHistory { thread: thread.clone(), after: parameter },
+            RedditTaskType::Post { thread, id, update_number } => RedditTaskType::Post { thread: thread.clone(), id: parameter, update_number: *update_number },
         }
     }
+
 }

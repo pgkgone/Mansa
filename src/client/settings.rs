@@ -1,11 +1,10 @@
 use std::{collections::HashMap, fs::{self, File}, io::BufReader, sync::Arc};
 
-use derivative::Derivative;
 use log::info;
 use serde::{Serialize, Deserialize};
 use strum::IntoEnumIterator;
 
-use crate::{generic::{social_network::SocialNetworkEnum, parsing_tasks::{RedditParsingParameters, ParsingTaskParameters}}};
+use crate::{generic::{social_network::SocialNetworkEnum, parsing_tasks::{ParsingTaskParameters}}};
 
 pub type SettingsPtr = Arc<Settings>;
 

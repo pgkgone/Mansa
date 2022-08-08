@@ -1,13 +1,13 @@
 use std::{error::Error};
 
 use async_trait::async_trait;
-use chrono::DateTime;
+use chrono::{DateTime, Duration};
 use futures::{future::{try_join_all}, FutureExt};
 use log::{error, info};
 use reqwest::{Response, StatusCode};
-use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity, parsing_tasks::{RedditParsingParameters, ParsingTask, ParsingTaskParameters, ParsingTaskStatus}}, client::{http_client::HttpAuthData, parser::AccountManagerPtr, db::{entities_db::{insert_with_replace}, tasks_db::update_tasks_with_status}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}}}, utils::time::get_timestamp};
+use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity, parsing_tasks::{ParsingTask, ParsingTaskParameters, ParsingTaskStatus}}, client::{http_client::HttpAuthData, parser::AccountManagerPtr, db::{entities_db::{insert_with_replace}, tasks_db::update_tasks_with_status}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}}}, utils::time::get_timestamp};
 use strum::IntoEnumIterator;
-use super::{task_type::{RedditTaskType}, data_types::{reddit_auth::AuthResponse, reddit_pages::ThreadPage}};
+use super::{task_type::{RedditTaskType}, data_types::{reddit_auth::AuthResponse, reddit_pages::{ThreadPage, CommentPage}, reddit_response_body::ResponseBody}};
 pub struct Reddit {
     pub auth_url: String
 }
@@ -55,19 +55,31 @@ impl SocialNetwork for Reddit {
     }
 
     fn process_settings_tasks(&self, tasks: &Vec<ParsingTaskParameters>) -> Result<Vec<ParsingTask>, Box<dyn Error>> {
-        let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
+        let mut parsing_tasks: Vec<RedditTaskType> = Vec::new();
         for task in tasks {
             let reddit_parsing_parameters = match task {
                 ParsingTaskParameters::Reddit(params) => params,
                 _ => continue
             };
-            match reddit_parsing_parameters.reddit_task_type {
-                RedditTaskType::All => parsing_tasks.extend(Reddit::unfold_all(reddit_parsing_parameters)),
-                RedditTaskType::Post => continue,
-                _ => parsing_tasks.push(Reddit::create_parsing_task(reddit_parsing_parameters.clone()))
+            match reddit_parsing_parameters {
+                RedditTaskType::All { .. } => parsing_tasks.extend(Reddit::unfold_all(reddit_parsing_parameters)),
+                RedditTaskType::Post { .. } => continue,
+                _ => parsing_tasks.push(reddit_parsing_parameters.clone())
             }
         }
-        return Ok(parsing_tasks);
+        return Ok(
+            parsing_tasks
+                .into_iter()
+                .map(|item| ParsingTask{ 
+                    _id: None, 
+                    execution_time: get_timestamp(), 
+                    action_type: item.to_string(), 
+                    parameters: ParsingTaskParameters::Reddit(item), 
+                    social_network: SocialNetworkEnum::Reddit, 
+                    status: ParsingTaskStatus::New }
+                )
+                .collect()
+        );
     }
 
     async fn parse(&self, account_manager_ptr: AccountManagerPtr, account: (AccountPtr, HttpAuthData), parsing_task: Vec<ParsingTask>) -> (Option<HttpAuthData>, Vec<ParsingTask>) {
@@ -79,7 +91,7 @@ impl SocialNetwork for Reddit {
             move |task| {
                 let token = account.1.token.clone();
                 return tokio::spawn(client.clone()
-                    .get(task.parameters.as_ref_reddit().to_url())
+                    .get(task.parameters.as_ref_reddit().to_string())
                     .bearer_auth(token.clone())
                     .send()
                     .then( 
@@ -112,15 +124,23 @@ impl SocialNetwork for Reddit {
     }
 }
 
+
 impl Reddit {
+
+
+
     async fn process_response(task: ParsingTask, response: Result<Response, reqwest::Error>, token: String) -> (Vec<ParsingTask>, Option<HttpAuthData>) {
         if let Ok(response) = response {
             let (response_timestamp, millis_to_refresh, requests_limit) = Reddit::parse_limits_from_header(&response);
             let mut new_parsing_tasks: Vec<ParsingTask> = Vec::new();
             if response.status() == StatusCode::OK {
-                let response_body = response.json::<ThreadPage>().await;
+                let response_url = response.url().to_string().clone();
+                let response_body = match task.parameters.as_ref_reddit() {
+                    RedditTaskType::Post { thread, id, update_number } => ResponseBody::Comments(response.json::<CommentPage>().await.inspect_err(|err| error!("unable to parse Post {}", response_url))),
+                    _ => ResponseBody::Thread(response.json::<ThreadPage>().await.inspect_err(|err| error!("unable to parse Thread {}", response_url)))
+                };
                 if response_body.is_ok() {
-                    let thread = response_body.unwrap();
+                    let thread = response_body;
                     new_parsing_tasks.extend(Reddit::spawn_new_tasks(&task, &thread));
                     insert_with_replace(Self::get_entities(thread)).await;
                 } 
@@ -145,34 +165,17 @@ impl Reddit {
 
     }
 
-    fn unfold_all(parsing_parameter: &RedditParsingParameters) -> Vec<ParsingTask> {
-        let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
-        match parsing_parameter.reddit_task_type {
-            RedditTaskType::All => {
-                for task_type in RedditTaskType::iter() {
-                    let mut all_parameter_unfold = parsing_parameter.clone();
-                    match task_type {
-                        RedditTaskType::All => continue,
-                        RedditTaskType::Post => continue,
-                        _ => all_parameter_unfold.reddit_task_type = task_type
-                    }
-                    parsing_tasks.push(Self::create_parsing_task(all_parameter_unfold));
-                }    
-            },
-            _ => panic!("this branch should not be called")
+    fn unfold_all(parsing_parameter: &RedditTaskType) -> Vec<RedditTaskType> {
+        return match parsing_parameter {
+            RedditTaskType::All { thread } => vec![
+                RedditTaskType::ThreadNew { thread: thread.clone(), after: None },
+                RedditTaskType::ThreadTopWeekHistory { thread: thread.clone(), after: None },
+                RedditTaskType::ThreadTopMonthHistory { thread: thread.clone(), after: None },
+                RedditTaskType::ThreadTopYearHistory { thread: thread.clone(), after: None },
+                RedditTaskType::ThreadTopAllTimeHistory { thread: thread.clone(), after: None }
+            ],
+            _ => panic!("this branch should not be called!")
         }
-        return parsing_tasks;
-    }
-
-    fn create_parsing_task(parsing_parameter: RedditParsingParameters) -> ParsingTask {
-        return ParsingTask {
-            _id: None,
-            execution_time: get_timestamp(),
-            action_type: parsing_parameter.reddit_task_type.to_string(),
-            parameters: ParsingTaskParameters::Reddit(parsing_parameter), 
-            social_network: SocialNetworkEnum::Reddit,
-            status: ParsingTaskStatus::New,
-        };
     }
 
     fn parse_limits_from_header(response: &Response) -> (u64, u64, usize) {
@@ -199,32 +202,52 @@ impl Reddit {
         return (timestamp, millis_to_refresh, requests_limit);
     }
 
-    fn spawn_new_tasks(parsing_task: &ParsingTask, thread: &ThreadPage) -> Vec<ParsingTask> {
-        let after = thread.posts.data.after.clone();
-        return match after {
-            Some(after) => vec![
-                ParsingTask {
-                    _id: None,
-                    execution_time: get_timestamp(),
-                    parameters: ParsingTaskParameters::Reddit(
-                        RedditParsingParameters{ 
-                            thread: parsing_task.parameters.as_ref_reddit().thread.clone(), 
-                            reddit_task_type: parsing_task.parameters.as_ref_reddit().reddit_task_type, 
-                            after: Some(after), 
-                            id: None 
-                        }),
-                    action_type: parsing_task.parameters.as_ref_reddit().reddit_task_type.to_string(),
-                    social_network: SocialNetworkEnum::Reddit,
-                    status: ParsingTaskStatus::New
-            }],
-            None => vec![],
+    fn spawn_new_tasks(parsing_task: &ParsingTask, response_body: &ResponseBody) -> Vec<ParsingTask> {
+        return match response_body {
+            ResponseBody::Thread(thread) => {
+                let thread = thread.as_ref().unwrap();
+                let after = thread.posts.data.after.clone();
+                let thread_task = match after {
+                    Some(after) => vec![
+                        ParsingTask {
+                            _id: None,
+                            execution_time: get_timestamp(),
+                            parameters: ParsingTaskParameters::Reddit(
+                                parsing_task.parameters.as_ref_reddit().with_parameter(Some(after))
+                            ),
+                            action_type: parsing_task.parameters.as_ref_reddit().to_string(),
+                            social_network: SocialNetworkEnum::Reddit,
+                            status: ParsingTaskStatus::New
+                    }],
+                    None => vec![],
+                };
+                let mut post_tasks = thread.posts.data.children.iter()
+                    .map(|item| ParsingTask {
+                        _id: None,
+                        execution_time: get_timestamp() + Duration::hours(6).num_milliseconds() as u64,
+                        parameters: ParsingTaskParameters::Reddit(
+                            RedditTaskType::Post { 
+                                thread: parsing_task.parameters.as_ref_reddit().get_thread(), 
+                                id: Some(item.data.id.clone()), 
+                                update_number: 0 
+                            }
+                        ),
+                        action_type: parsing_task.parameters.as_ref_reddit().to_string(),
+                        social_network: SocialNetworkEnum::Reddit,
+                        status: ParsingTaskStatus::New
+                    }).collect::<Vec<_>>();
+                post_tasks.extend(thread_task);
+                return post_tasks;
+            },
+            ResponseBody::Comments(_) => vec![],
         }
-
     }
 
-    fn get_entities(thread: ThreadPage) -> Vec<Entity> {
+    fn get_entities(thread: ResponseBody) -> Vec<Entity> {
         let mut entities: Vec<Entity> = Vec::new();
-        thread.posts.data.children.into_iter().for_each(|item| entities.push(item.data.into()));
+        //thread.posts.data.children.into_iter().for_each(|item| entities.push(item.data.into()));
         return entities;
     }
 }
+
+
