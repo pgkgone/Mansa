@@ -1,15 +1,13 @@
-use std::{error::Error, str::FromStr, collections::HashMap, thread};
+use std::{error::Error};
 
 use async_trait::async_trait;
 use chrono::DateTime;
 use futures::{future::{try_join_all}, FutureExt};
 use log::{error, info};
-use regex::Regex;
 use reqwest::{Response, StatusCode};
-use lazy_static::{lazy_static};
 use crate::{generic::{social_network::{SocialNetwork, SocialNetworkEnum}, entity::Entity, parsing_tasks::{RedditParsingParameters, ParsingTask, ParsingTaskParameters, ParsingTaskStatus}}, client::{http_client::HttpAuthData, parser::AccountManagerPtr, db::{entities_db::{insert_with_replace}, tasks_db::update_tasks_with_status}, managers::{account_manager::{AccountPtr, ReqwestClientPtr}}}, utils::time::get_timestamp};
 use strum::IntoEnumIterator;
-use super::data_types::{AuthResponse, Thread, RedditTaskType};
+use super::{task_type::{RedditTaskType}, data_types::{reddit_auth::AuthResponse, reddit_pages::ThreadPage}};
 pub struct Reddit {
     pub auth_url: String
 }
@@ -99,7 +97,6 @@ impl SocialNetwork for Reddit {
                 result.iter()
                     .map(|item| &item.1)
                     .fold(None, |result, item| {
-                        //error!("item auth data {:?}", item);
                         return match item {
                             Some(item) if result.is_none() || item.retrieve_timestamp < result.as_ref().unwrap().retrieve_timestamp => Some(item.clone()),
                             _ => result
@@ -121,7 +118,7 @@ impl Reddit {
             let (response_timestamp, millis_to_refresh, requests_limit) = Reddit::parse_limits_from_header(&response);
             let mut new_parsing_tasks: Vec<ParsingTask> = Vec::new();
             if response.status() == StatusCode::OK {
-                let response_body = response.json::<Thread>().await;
+                let response_body = response.json::<ThreadPage>().await;
                 if response_body.is_ok() {
                     let thread = response_body.unwrap();
                     new_parsing_tasks.extend(Reddit::spawn_new_tasks(&task, &thread));
@@ -202,8 +199,8 @@ impl Reddit {
         return (timestamp, millis_to_refresh, requests_limit);
     }
 
-    fn spawn_new_tasks(parsing_task: &ParsingTask, thread: &Thread) -> Vec<ParsingTask> {
-        let after = thread.data.after.clone();
+    fn spawn_new_tasks(parsing_task: &ParsingTask, thread: &ThreadPage) -> Vec<ParsingTask> {
+        let after = thread.posts.data.after.clone();
         return match after {
             Some(after) => vec![
                 ParsingTask {
@@ -225,9 +222,9 @@ impl Reddit {
 
     }
 
-    fn get_entities(thread: Thread) -> Vec<Entity> {
+    fn get_entities(thread: ThreadPage) -> Vec<Entity> {
         let mut entities: Vec<Entity> = Vec::new();
-        thread.data.children.into_iter().for_each(|item| entities.push(item.data.into()));
+        thread.posts.data.children.into_iter().for_each(|item| entities.push(item.data.into()));
         return entities;
     }
 }

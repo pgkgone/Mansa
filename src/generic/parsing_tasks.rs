@@ -2,7 +2,7 @@ use mongodb::bson::oid::ObjectId;
 use serde::{Serialize, Deserialize};
 use strum::EnumIter;
 
-use crate::{reddit::data_types::{RedditTaskType, RedditUrlWithPlaceholderSourceType}, client::db::client::{DBCollection, DATABASE_COLLECTIONS}};
+use crate::{reddit::task_type::{RedditTaskType, RedditUrlWithPlaceholderSourceType}, client::db::client::{DBCollection, DATABASE_COLLECTIONS}};
 
 use super::social_network::SocialNetworkEnum;
 

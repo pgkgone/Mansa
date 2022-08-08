@@ -20,12 +20,11 @@ pub async fn insert_with_replace(mut entities: Vec<Entity>) {
             .upsert(Some(true))
             .build();
         let match_query = doc! {
-            "_id" : {
-                "$eq" : item._id.clone()
+            "id" : {
+                "$eq" : item.id.clone()
             }
         };
         let mut d = bson::to_document(&item).unwrap();
-        d.remove("_id").unwrap();
         let update_query = doc! {
             "$set": d
         };
