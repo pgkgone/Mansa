@@ -136,13 +136,12 @@ impl Reddit {
             if response.status() == StatusCode::OK {
                 let response_url = response.url().to_string().clone();
                 let response_body = match task.parameters.as_ref_reddit() {
-                    RedditTaskType::Post { thread, id, update_number } => ResponseBody::Comments(response.json::<CommentPage>().await.inspect_err(|err| error!("unable to parse Post {}", response_url))),
+                    RedditTaskType::Post { .. } => ResponseBody::Comments(response.json::<CommentPage>().await.inspect_err(|err| error!("unable to parse Post {}", response_url))),
                     _ => ResponseBody::Thread(response.json::<ThreadPage>().await.inspect_err(|err| error!("unable to parse Thread {}", response_url)))
                 };
                 if response_body.is_ok() {
-                    let thread = response_body;
-                    new_parsing_tasks.extend(Reddit::spawn_new_tasks(&task, &thread));
-                    insert_with_replace(Self::get_entities(thread)).await;
+                    new_parsing_tasks.extend(Reddit::spawn_new_tasks(&task, &response_body));
+                    insert_with_replace(Self::get_entities(response_body)).await;
                 } 
             } else {
                 update_tasks_with_status(vec![task._id.unwrap()], ParsingTaskStatus::New).await;
@@ -239,13 +238,48 @@ impl Reddit {
                 post_tasks.extend(thread_task);
                 return post_tasks;
             },
-            ResponseBody::Comments(_) => vec![],
-        }
+            ResponseBody::Comments(comments) => {
+                match &parsing_task.parameters.as_ref_reddit() {
+                    RedditTaskType::Post { thread, id, update_number } => {
+                        let mut new_task = vec![];
+                        if *update_number <= 2 {
+                            new_task = vec![
+                                ParsingTask { 
+                                    _id: None, 
+                                    execution_time: get_timestamp() + Duration::hours(1).num_milliseconds() as u64, 
+                                    parameters: ParsingTaskParameters::Reddit(
+                                        RedditTaskType::Post { 
+                                            thread: thread.clone(), 
+                                            id: Some(id.as_ref().unwrap().clone()), 
+                                            update_number: update_number + 1 
+                                        }
+                                    ), 
+                                    action_type: parsing_task.parameters.as_ref_reddit().to_string(),
+                                    social_network: SocialNetworkEnum::Reddit, 
+                                    status: ParsingTaskStatus::New 
+                                }
+                            ]
+                        }
+                        return new_task
+                    },
+                    _ => {vec![]}
+                }
+            },
+        };
     }
 
     fn get_entities(thread: ResponseBody) -> Vec<Entity> {
         let mut entities: Vec<Entity> = Vec::new();
-        //thread.posts.data.children.into_iter().for_each(|item| entities.push(item.data.into()));
+        match thread {
+            ResponseBody::Thread(thread) => {
+                thread.unwrap().posts.data.children.into_iter().for_each(|item| entities.push(Entity::from(item.data)));
+            },
+            ResponseBody::Comments(comments) => {
+                let mut comments = comments.unwrap();
+                comments.comments.data.children.into_iter().for_each(|item| entities.push(Entity::from(item.data)));
+                entities.push(Entity::from(comments.post.data.children.remove(0).data));
+            },
+        }
         return entities;
     }
 }
