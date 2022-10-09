@@ -27,7 +27,7 @@ impl From<Comment> for Entity {
             source: comment.source.unwrap_or("".to_string()),
             source_followers: None,
             date_time: DateTime::from_millis(comment.timestamp.unwrap_or(0.0) as i64 * 1000),
-            entity_type: EntityType::Post, 
+            entity_type: EntityType::Comment,
             author_id: comment.author_id, 
             title: None, 
             content: comment.body, 

@@ -8,6 +8,7 @@ use super::social_network::SocialNetworkEnum;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EntityType {
     Post,
+    Comment,
     Message
 }
 

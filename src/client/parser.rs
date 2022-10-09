@@ -45,6 +45,7 @@ impl Parser {
             .collect(), 
             ParsingTaskStatus::Processed
         ).await;
+
         let mut tasks = GroupedTasks::to_hashmap( tasks);
 
         let social_nets_with_tasks: Vec<SocialNetworkEnum> = tasks.keys().cloned().collect();
@@ -107,13 +108,9 @@ impl Parser {
         if !new_tasks.is_empty() {
             insert_tasks(&new_tasks).await;
         }
-    
-
     }
 
-
     fn get_unused_tasks(accounts: &mut HashMap<SocialNetworkEnum, (Arc<Account>, HttpAuthData)>, tasks: &mut HashMap<SocialNetworkEnum, Vec<ParsingTask>>) -> Vec<ParsingTask> {
-
         let mut unused_tasks: Vec<ParsingTask> = Vec::with_capacity(10);
         tasks.drain_filter(|social_net, parsing_tasks| {
             return match accounts.contains_key(social_net) {
@@ -132,5 +129,4 @@ impl Parser {
 
         return unused_tasks;
     }
-
 }

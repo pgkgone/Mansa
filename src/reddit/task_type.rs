@@ -27,7 +27,6 @@ impl ToString for RedditTaskType {
 }
 
 impl RedditTaskType {
-
     pub fn to_url(&self) -> String {
         return match self {
             RedditTaskType::All{thread} => {panic!("can't ToString this variant");}
@@ -41,8 +40,8 @@ impl RedditTaskType {
                 .replace("{AFTER}", after.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
             RedditTaskType::ThreadTopWeekHistory{thread, after} => format!("https://oauth.reddit.com/{}/top.json?t=week{{AFTER}}", thread)
                 .replace("{AFTER}", after.as_ref().map_or("".to_string(), |after| format!("&after={}&limit=100", &after)).as_str()),
-            RedditTaskType::Post{thread, id, update_number} => format!("https://www.oauth.reddit.com/{}/comments/{{ID}}.json", thread)
-            .replace("{AFTER}", id.as_ref().unwrap_or(&"".to_string()).as_str()),
+            RedditTaskType::Post{thread, id, update_number} => format!("https://oauth.reddit.com/{}/comments/?sort=$old&threded={ID}.json", thread,
+                ID = id.as_ref().unwrap_or(&"".to_string()).as_str()),
         }
     } 
 
@@ -66,8 +65,7 @@ impl RedditTaskType {
             RedditTaskType::ThreadTopYearHistory { thread, after } => RedditTaskType::ThreadTopYearHistory { thread: thread.clone(), after: parameter },
             RedditTaskType::ThreadTopMonthHistory { thread, after } => RedditTaskType::ThreadTopMonthHistory { thread: thread.clone(), after: parameter },
             RedditTaskType::ThreadTopWeekHistory { thread, after } => RedditTaskType::ThreadTopWeekHistory { thread: thread.clone(), after: parameter },
-            RedditTaskType::Post { thread, id, update_number } => RedditTaskType::Post { thread: thread.clone(), id: parameter, update_number: *update_number },
+            RedditTaskType::Post { thread, id, update_number } => RedditTaskType::Post { thread: thread.clone(), id: id.clone(), update_number: *update_number },
         }
     }
-
 }
