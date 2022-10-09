@@ -91,7 +91,7 @@ impl SocialNetwork for Reddit {
             move |task| {
                 let token = account.1.token.clone();
                 return tokio::spawn(client.clone()
-                    .get(task.parameters.as_ref_reddit().to_string())
+                    .get(task.parameters.as_ref_reddit().to_url())
                     .bearer_auth(token.clone())
                     .send()
                     .then( 
@@ -126,9 +126,6 @@ impl SocialNetwork for Reddit {
 
 
 impl Reddit {
-
-
-
     async fn process_response(task: ParsingTask, response: Result<Response, reqwest::Error>, token: String) -> (Vec<ParsingTask>, Option<HttpAuthData>) {
         if let Ok(response) = response {
             let (response_timestamp, millis_to_refresh, requests_limit) = Reddit::parse_limits_from_header(&response);
@@ -161,7 +158,6 @@ impl Reddit {
         } else {
             return (Vec::new(), None);
         }
-
     }
 
     fn unfold_all(parsing_parameter: &RedditTaskType) -> Vec<RedditTaskType> {

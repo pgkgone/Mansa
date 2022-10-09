@@ -19,10 +19,10 @@ pub async fn insert_tasks(tasks: &Vec<ParsingTask>) {
     insert_if_not_empty::<ParsingTask>(tasks, DATABASE::MANSA, DATABASE_COLLECTIONS::PARSING_TASKS).await;
 }
 
-pub async fn update_tasks_with_status(tasks: Vec<bson::oid::ObjectId>, status: ParsingTaskStatus) {
+pub async fn update_tasks_with_status(ids: Vec<bson::oid::ObjectId>, status: ParsingTaskStatus) {
     let match_query = doc! {
         "_id" : {
-            "$in" : tasks
+            "$in" : ids
         }
     };
     let update_query = doc! {
