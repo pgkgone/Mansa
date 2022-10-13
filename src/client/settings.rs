@@ -1,7 +1,9 @@
 use std::{collections::HashMap, fs::{self, File}, io::BufReader, sync::Arc};
 
+use derivative::Derivative;
 use log::info;
 use serde::{Serialize, Deserialize};
+use serde_json::Value;
 use strum::IntoEnumIterator;
 
 use crate::{generic::{social_network::SocialNetworkEnum, parsing_tasks::{ParsingTaskParameters}}};
@@ -42,12 +44,12 @@ impl From<&Proxy> for reqwest::Proxy {
     }
 }
 
-#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug)]
-pub struct SocialNetworkSettings {
-    pub social_network: SocialNetworkEnum,
-    pub accounts: Vec<Account>,
-    pub parsing_tasks: Vec<ParsingTaskParameters>
-    
+#[derive(Derivative, Serialize, Deserialize)]
+#[derivative(PartialEq, Debug, Hash, Eq)]
+pub struct Settings {
+    pub general_settings: GeneralSettings,
+    #[derivative(Hash="ignore", Debug="ignore")]
+    pub social_network_settings: HashMap<SocialNetworkEnum, SocialNetworkSettings>
 }
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug)]
@@ -56,15 +58,21 @@ pub struct GeneralSettings {
     pub disable_proxy: bool
 }
 
-#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug)]
-pub struct Settings {
-    pub general_settings: GeneralSettings,
-    pub social_network_settings: Vec<SocialNetworkSettings>
+#[derive(Derivative, Serialize, Deserialize)]
+#[derivative(PartialEq, Hash, Eq)]
+pub struct SocialNetworkSettings {
+    pub social_network: SocialNetworkEnum,
+    pub accounts: Vec<Account>,
+    #[derivative(Hash="ignore")]
+    pub parsing_tasks: Vec<HashMap<String, Value>>,
+    #[derivative(Hash="ignore")]
+    pub additional_properties: HashMap<String, Value>
 }
+
 
 enum SettingsPathType {
     GeneralSettingsPath(String),
-    SocialNetworkSettingsPath(String),
+    SocialNetworkSettingsPath(SocialNetworkEnum, String),
     OtherPath()
 }
 
@@ -73,10 +81,13 @@ enum SettingsPathType {
 impl SettingsPathType {
 
     fn test(path: String) -> SettingsPathType {
+        for social_net in SocialNetworkEnum::iter() {
+            if path.contains(&social_net.to_string()) {
+                return SettingsPathType::SocialNetworkSettingsPath(social_net, path);
+            }
+        }
         if path.contains("general_settings.json") {
             return SettingsPathType::GeneralSettingsPath(path);
-        } else if SocialNetworkEnum::iter().any(|enumName| path.contains(&enumName.to_string())){
-            return SettingsPathType::SocialNetworkSettingsPath(path);
         } else {
             return SettingsPathType::OtherPath();
         }
@@ -91,7 +102,7 @@ pub fn get_settings() -> SettingsPtr {
 
     let mut general_settings: Option<GeneralSettings> = None;
 
-    let mut social_network_settings: Vec<SocialNetworkSettings> = Vec::with_capacity(SocialNetworkEnum::iter().count());
+    let mut social_network_settings: HashMap<SocialNetworkEnum, SocialNetworkSettings> = HashMap::new();
 
     for path in paths {
 
@@ -103,10 +114,13 @@ pub fn get_settings() -> SettingsPtr {
                 general_settings = Some(serde_json::from_reader(reader).expect("unable to parse general_settings file"));
             },
 
-            SettingsPathType::SocialNetworkSettingsPath(social_network_settings_folder) => {
+            SettingsPathType::SocialNetworkSettingsPath(social_net, social_network_settings_folder) => {
                 let f = File::open(social_network_settings_folder + "/settings.json").expect(&format!("unable to open settings file of"));
                 let mut reader = BufReader::new(f);
-                social_network_settings.push(serde_json::from_reader(reader).expect("unable to parse reddit social net settings file"));
+                social_network_settings.insert(
+                    social_net, 
+                    serde_json::from_reader(reader).expect("unable to parse reddit social net settings file")
+                );
             },
 
             SettingsPathType::OtherPath() => {}

@@ -3,7 +3,7 @@ use log::{info, error};
 use priority_queue::PriorityQueue;
 use reqwest::{ClientBuilder};
 
-use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network_async}, utils::{file_reader::read_json_from_file, time::get_timestamp}, client::{settings::{Account, Proxy, SettingsPtr}, http_client::HttpAuthData}};
+use crate::{generic::social_network::{SocialNetworkEnum, dispatch_social_network_async, dispatch_social_network}, utils::{file_reader::read_json_from_file, time::get_timestamp}, client::{settings::{Account, Proxy, SettingsPtr}, http_client::HttpAuthData}};
 
 pub type AccountPtr = Arc<Account>;
 pub type ReqwestClientPtr = Arc<reqwest::Client>;
@@ -203,20 +203,25 @@ impl AccountManagerBuilder {
                 println!("{}", r_token);
             }
         }
-        let mut aam = AccountManager {
+        let mut am = AccountManager {
             account_manager: account_manager_builder
         };
-        aam.set_account_pool(); 
-        return aam;
+        am.set_account_pool(); 
+        return am;
     }
 
     fn set_social_net_account_map(&mut self) {
-        for social_network in self.settings.as_ref().expect("settings file for account manager not set").social_network_settings.iter() {
-            let mut arc_accounts: Vec<AccountPtr> = Vec::with_capacity(social_network.accounts.len()); 
-            for account in social_network.accounts.iter() {
-                arc_accounts.push(Arc::new(account.clone()))
-            }
-            self.social_network_accounts_map.insert(social_network.social_network, arc_accounts);
+        for social_netowork in self.settings.as_ref().expect("settings file for account manager not set").social_network_settings.keys() {
+            let accounts = dispatch_social_network(
+                self.settings.as_ref().unwrap(), 
+                *social_netowork, 
+                |settings, social_netowork_ptr| 
+                    social_netowork_ptr.prepare_accounts(settings.clone())
+            ).unwrap();
+            self.social_network_accounts_map.insert(
+                *social_netowork,
+                accounts.into_iter().map(|account| Arc::new(account)).collect()
+            );
         }
     }
 

@@ -2,24 +2,19 @@
     "accounts" : [{
         "login" : "login",
         "password" : "password",
-        "public_key" : "public",
-        "private_key" : "private",
+        "public_key" : "public_key",
+        "private_key" : "private_key",
         "social_network": "Reddit"
     }],
+    "additional_properties": {
+        "enable_comment_parsing" : true
+    },
     "parsing_tasks" : [
         {
-            "Reddit": {
-                "All" : {
-                    "thread": "r/bitcoin"
-                }
-            }
+            "thread": "r/bitcoin"
         },
         {
-            "Reddit": {
-                "All" : {
-                    "thread": "r/ethereum"
-                }
-            }
+            "thread": "r/ethereum"
         }
     ],
     "social_network": "Reddit"

@@ -1,10 +1,7 @@
-use std::{collections::HashMap, hash::Hash, cmp::Reverse};
+use std::{collections::HashMap, cmp::Reverse};
 
 use log::{info};
-use mongodb::bson::oid::ObjectId;
 use priority_queue::PriorityQueue;
-use serde::{Serialize, Deserialize};
-use strum::{EnumIter};
 
 use crate::{generic::{social_network::{SocialNetworkEnum, dispatch_social_network}, parsing_tasks::ParsingTask}, utils::time::get_timestamp, client::{settings::SettingsPtr, db::{client::{DBCollection, DATABASE_COLLECTIONS}, tasks_db::insert_tasks}}};
 
@@ -20,15 +17,17 @@ impl TaskManager {
 
         let mut parsing_tasks: Vec<ParsingTask> = Vec::new();
 
-        for social_network_settings in setting.social_network_settings.iter() {
+        for social_network_settings in setting.social_network_settings.values() {
             
             let mut tasks = dispatch_social_network(
-                &social_network_settings.parsing_tasks, 
+                setting.clone(), 
                 social_network_settings.social_network, 
-                |parsing_tasks, social_network_ptr| social_network_ptr.process_settings_tasks(parsing_tasks) )
+                |settings, social_network_ptr| 
+                    social_network_ptr.prepare_parsing_tasks(settings) )
                 .expect("unable to process tasks from settings file");
             info!("{:#?}", tasks);
             parsing_tasks.append(&mut tasks);
+            
         }
 
         insert_tasks(&parsing_tasks).await;
