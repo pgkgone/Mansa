@@ -5,16 +5,60 @@ use tokio::sync::{mpsc::Receiver, Notify};
 
 use crate::{commons::{parsing_tasks::{ParsingTask, self}, social_network::dispatch_social_network_async}};
 
-use super::{task_publisher::{TaskPublisher, TaskPublisherMod, TaskPublisherBuilder, self, TaskPublisherPtr}, account_manager::{account_pool::{AccountPool, self}, account::AccountPtr, account_pool_builder::AccountPoolBuilder}};
+use super::{task_publisher::{TaskPublisherBuilder, TaskPublisherPtr}, account_manager::{account_pool::{AccountPool, self}, account::AccountPtr, account_pool_builder::AccountPoolBuilder}};
 
 pub type AccountPoolPtr = Arc<AccountPool>;
+pub type ParserThreadCounterPtr = Arc<ParserThreadCounter>;
+pub struct ParserThreadCounter {
+    number_concurrent_tasks: AtomicUsize, 
+    number_total_finished_tasks: AtomicUsize, 
+    thread_available_notification: Notify,
+    limit: usize
+}
+
+impl ParserThreadCounter {
+
+    pub fn new(limit: usize) -> ParserThreadCounter {
+        return ParserThreadCounter { 
+            number_concurrent_tasks: AtomicUsize::new(0),
+            number_total_finished_tasks: AtomicUsize::new(0), 
+            thread_available_notification: Notify::new(),
+            limit
+        }
+    }
+
+    pub async fn increase(&self) -> usize {
+        let current_number_of_threads = self.number_concurrent_tasks.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        if current_number_of_threads > 20 {
+            debug!("waiting for thread notification");
+            self.wait_available_thread().await;
+        }
+        return self.number_concurrent_tasks.fetch_add(0, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub async fn decrease(&self) -> usize {
+        let current_number_of_threads = self.number_concurrent_tasks.fetch_sub(1, std::sync::atomic::Ordering::Relaxed) - 1;
+        self.thread_available_notification.notify_one();
+        return current_number_of_threads;
+    }
+
+    pub async fn increase_finished(&self) {
+        let finished_tasks = self.number_total_finished_tasks.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        debug!("total finished tasks: {}", finished_tasks);
+    }
+
+    async fn wait_available_thread(&self) {
+        self.thread_available_notification.notified().await;
+    }
+
+
+}
 
 pub struct Parser {
     task_publisher: TaskPublisherPtr,
     task_receiver: Receiver<ParsingTask>,
     account_pool: AccountPoolPtr,
-    number_concurrent_tasks: AtomicUsize, 
-    thread_available_notification: Arc<Notify>
+    thread_counter: ParserThreadCounterPtr
 }
 
 impl Parser {
@@ -27,12 +71,9 @@ impl Parser {
 
             debug!("starts parsing loop");
 
-            let current_number_of_threads = self.add_thread().await;
+            let current_number_of_threads = self.thread_counter.increase().await;
 
-            if current_number_of_threads == 1000 {
-                self.wait_available_thread().await;
-                self.sub_thread();
-            }
+            debug!("current number of parsing threads: {}", current_number_of_threads);
 
             debug!("receiving task");
 
@@ -50,13 +91,14 @@ impl Parser {
 
             debug!("account successfully received");
 
-            let notifier = self.thread_available_notification.clone();
+            let notifier = self.thread_counter.clone();
 
             debug!("spawning async parsing task");
 
             tokio::spawn(async move {
                 Self::parse(parsing_task, account).await;
-                notifier.notify_one();
+                notifier.decrease().await;
+                notifier.increase_finished().await;
             });
         }
     }
@@ -70,18 +112,6 @@ impl Parser {
                 social_net_ptr.parse(task, account)
             }
         ).await;
-    }
-
-    async fn add_thread(&mut self) -> usize {
-        return self.number_concurrent_tasks.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-    }
-
-    async fn sub_thread(&mut self) -> usize {
-        return self.number_concurrent_tasks.fetch_sub(1, std::sync::atomic::Ordering::Relaxed) - 1;
-    }
-
-    async fn wait_available_thread(&mut self) {
-        self.thread_available_notification.notified().await;
     }
 
     pub fn run_task_publisher(&self) {
@@ -115,8 +145,7 @@ impl ParserBuilder {
             task_publisher: task_publisher,
             task_receiver: receiver,
             account_pool: self.account_pool_builder.build().await,
-            number_concurrent_tasks: AtomicUsize::new(0),
-            thread_available_notification: Arc::new(Notify::new()),
+            thread_counter: Arc::new(ParserThreadCounter::new(20))
         }
     }
 

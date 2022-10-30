@@ -52,7 +52,7 @@ impl AccountPool {
         } else {
             std::mem::drop(wg_session);
             std::mem::drop(guard_accounts);
-            tokio::time::sleep(Duration::from_millis(account_refresh_timestamp - get_timestamp())).await;
+            tokio::time::sleep(Duration::from_millis(account_refresh_timestamp.saturating_sub(get_timestamp()))).await;
         }
         return account_clone;
     }
