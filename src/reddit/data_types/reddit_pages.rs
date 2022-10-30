@@ -10,7 +10,7 @@ pub struct ThreadPage {
 
 #[derive(Serialize, Clone, Debug)]
 pub struct CommentPage {
-   // pub post: Listing<Post>,
+    pub post: Listing<Post>,
     pub comments: Listing<Comment>
 }
 
@@ -29,16 +29,15 @@ impl<'de> Deserialize<'de> for CommentPage {
     where
         D: Deserializer<'de>,
     {
-  //      let listings: Vec<Value> = Deserialize::deserialize(deserializer)?;
-    //    let children: Listing<Post> = Deserialize::deserialize(listings
-    //        .get(0)
-    //        .unwrap()
-    //    ).expect("parsing error");
-     /*   let comments: Listing<Comment> = Deserialize::deserialize(deserializer
+        let listings: Vec<Value> = Deserialize::deserialize(deserializer)?;
+        let children: Listing<Post> = Deserialize::deserialize(listings
             .get(0)
             .unwrap()
-        ).expect("parsing error");*/
-        let listing: Listing<Comment> = Deserialize::deserialize(deserializer)?;
-        return Ok(CommentPage{ comments: listing });
+        ).expect("parsing error");
+        let comments: Listing<Comment> = Deserialize::deserialize(listings
+            .get(1)
+            .unwrap()
+        ).expect("parsing error");
+        return Ok(CommentPage{ post: children, comments });
     }
 }

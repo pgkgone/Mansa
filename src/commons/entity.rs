@@ -30,7 +30,7 @@ pub struct Entity {
     pub author_name: Option<String>,
     pub social_network: SocialNetworkEnum,
 
-    pub rating: Option<u64>, 
+    pub rating: Option<i64>, 
 
     pub images: Vec<String>
 }

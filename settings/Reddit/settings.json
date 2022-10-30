@@ -1,9 +1,9 @@
 {
     "accounts" : [{
-        "login" : "login",
-        "password" : "password",
-        "public_key" : "public_key",
-        "private_key" : "private_key",
+        "login" : "",
+        "password" : "",
+        "public_key" : "",
+        "private_key" : "",
         "social_network": "Reddit"
     }],
     "additional_properties": {
@@ -12,9 +12,6 @@
     "parsing_tasks" : [
         {
             "thread": "r/bitcoin"
-        },
-        {
-            "thread": "r/ethereum"
         }
     ],
     "social_network": "Reddit"

@@ -1,4 +1,4 @@
-use super::reddit_pages::{*, self};
+use super::reddit_pages::{self};
 
 pub enum ResponseBody {
     Thread(Result<reddit_pages::ThreadPage, reqwest::Error>),

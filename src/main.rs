@@ -3,26 +3,44 @@
 #![feature(once_cell)]
 #![feature(unwrap_infallible)]
 #![feature(hash_drain_filter)]
+#![feature(linked_list_cursors)]
 
-use std::{io::{self}, sync::{Arc}};
-use client::{settings::{get_settings}, parser::Parser};
-use tokio::sync::RwLock;
-
-use crate::{client::{managers::{account_manager::{AccountManagerBuilder, DistributionStrategy}, task_manager::TaskManager}}};
+use std::{io, env};
+use std::sync::{Arc};
+use client::parser_v2::account_manager::account_pool_builder::AccountPoolBuilder;
+use client::parser_v2::parser::ParserBuilder;
+use client::parser_v2::task_publisher::{TaskPublisherMod, TaskPublisherBuilder};
+use client::settings::{get_settings};
+use log::LevelFilter;
+use std::io::Write;
 
 mod utils;
 mod client;
 mod reddit;
-mod generic;
+mod commons;
+
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 50)]
 async fn main() -> Result<(), io::Error>{
-    env_logger::init();
+    env_logger::Builder::new()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{}:{} {} [{}] - {}",
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                chrono::Local::now().format("%Y-%m-%dT%H:%M:%S"),
+                record.level(),
+                record.args()
+            )
+        })
+        .filter_level(LevelFilter::Debug)
+        .init();
     let settings = get_settings();
-    let account_manager_builder = AccountManagerBuilder::new(DistributionStrategy::NoProxy, settings.clone());
-    let account_manager = Arc::new(RwLock::new(AccountManagerBuilder::auth(account_manager_builder).await));
-    let task_manager = Arc::new(RwLock::new(TaskManager::new(settings.clone()).await));
-    let parser = Parser::new(account_manager, task_manager);
-    parser.start().await; 
-    return Ok(())
+    let mut parser = ParserBuilder::new(
+        TaskPublisherBuilder::new(TaskPublisherMod::Manual, settings.clone(), 1000),
+        AccountPoolBuilder::new(settings.clone())
+    ).build().await;
+    parser.start().await;
+    Ok(())
 } 

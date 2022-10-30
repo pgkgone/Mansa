@@ -1,4 +1,5 @@
-use std::{path::{Path}, fs, env};
+use std::{fs, env};
+use std::path::Path;
 use log::error;
 use serde::de::DeserializeOwned;
 use serde_json;

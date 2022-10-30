@@ -1,9 +1,9 @@
 use std::{collections::HashMap, hash::Hash};
 
-use mongodb::{bson::{doc, self}};
+use mongodb::{bson::{doc, self, oid::ObjectId}};
 use serde::{Serialize, Deserialize};
 
-use crate::{generic::{ social_network::SocialNetworkEnum, parsing_tasks::{ParsingTask, ParsingTaskStatus}}, utils::time::get_timestamp};
+use crate::{commons::{ social_network::SocialNetworkEnum, parsing_tasks::{ParsingTask, ParsingTaskStatus}}, utils::time::get_timestamp};
 
 use super::client::{DATABASE, DATABASE_COLLECTIONS, insert_if_not_empty, get_collection, MONGO_CLIENT, TRANSACTION, ClientSessionPtr, GroupBoundaries};
 
@@ -17,6 +17,24 @@ pub enum Limit {
 
 pub async fn insert_tasks(tasks: &Vec<ParsingTask>) {
     insert_if_not_empty::<ParsingTask>(tasks, DATABASE::MANSA, DATABASE_COLLECTIONS::PARSING_TASKS).await;
+}
+
+pub async fn update_task_with_status(id: ObjectId, status: ParsingTaskStatus) {
+    let match_query = doc! {
+        "id" : {
+            "$eq" : id
+        }
+    };
+    let update_query = doc! {
+        "$set": {
+            "status": status.to_string()
+        }
+    };
+    get_collection::<ParsingTask>()
+        .await
+        .update_one(match_query, update_query, None)
+        .await
+        .expect("unable to update tasks");
 }
 
 pub async fn update_tasks_with_status(ids: Vec<bson::oid::ObjectId>, status: ParsingTaskStatus) {
@@ -37,10 +55,13 @@ pub async fn update_tasks_with_status(ids: Vec<bson::oid::ObjectId>, status: Par
         .expect("unable to update tasks");
 }
 
-pub async fn get_tasks_sorted_by_exec_time(limit: Limit) -> Vec<ParsingTask> {
+pub async fn get_tasks_sorted_by_exec_time(statuses: Vec<ParsingTaskStatus>, limit: Limit) -> Vec<ParsingTask> {
+    let statuses: Vec<String> = statuses.into_iter().map(|item| item.to_string()).collect();
     let match_query = doc! {
         "$match": {
-            "status": ParsingTaskStatus::New.to_string(),
+            "status": {
+                "$in": statuses
+            },
             "execution_time": {
                 "$lt": get_timestamp() as i64
             }

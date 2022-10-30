@@ -1,3 +1,3 @@
 pub mod reddit;
-pub mod task_type;
+pub mod reddit_parsing_task;
 pub mod data_types;

@@ -1,7 +1,7 @@
 use mongodb::bson::DateTime;
 use serde::{Serialize, Deserialize};
 
-use crate::generic::{entity::{Entity, EntityType}, social_network::SocialNetworkEnum};
+use crate::commons::{entity::{Entity, EntityType}, social_network::SocialNetworkEnum};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct  Post {
@@ -20,7 +20,7 @@ pub struct  Post {
     pub author_id: Option<String>,
     #[serde(alias = "author")]
     pub author_name: Option<String>, 
-    pub ups: u64,
+    pub ups: i64,
     pub preview: Option<Preview>
 
 }

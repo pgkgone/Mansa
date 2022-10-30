@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use strum::IntoEnumIterator;
 
-use crate::{generic::{social_network::SocialNetworkEnum, parsing_tasks::{ParsingTaskParameters}}};
+use crate::commons::social_network::SocialNetworkEnum;
 
 pub type SettingsPtr = Arc<Settings>;
 
@@ -110,13 +110,13 @@ pub fn get_settings() -> SettingsPtr {
 
             SettingsPathType::GeneralSettingsPath(general_settings_path) => {
                 let f = File::open(general_settings_path).expect("unable to read general_settings file");
-                let mut reader = BufReader::new(f);
+                let reader = BufReader::new(f);
                 general_settings = Some(serde_json::from_reader(reader).expect("unable to parse general_settings file"));
             },
 
             SettingsPathType::SocialNetworkSettingsPath(social_net, social_network_settings_folder) => {
                 let f = File::open(social_network_settings_folder + "/settings.json").expect(&format!("unable to open settings file of"));
-                let mut reader = BufReader::new(f);
+                let reader = BufReader::new(f);
                 social_network_settings.insert(
                     social_net, 
                     serde_json::from_reader(reader).expect("unable to parse reddit social net settings file")

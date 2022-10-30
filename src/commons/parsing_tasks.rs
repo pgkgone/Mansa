@@ -2,7 +2,7 @@ use mongodb::bson::oid::ObjectId;
 use serde::{Serialize, Deserialize};
 use strum::EnumIter;
 
-use crate::{reddit::task_type::{RedditTaskType}, client::db::client::{DBCollection, DATABASE_COLLECTIONS}};
+use crate::{reddit::reddit_parsing_task::{RedditParsingTask}, client::db::client::{DBCollection, DATABASE_COLLECTIONS}};
 
 use super::social_network::SocialNetworkEnum;
 
@@ -32,18 +32,18 @@ impl DBCollection for ParsingTask {
 
 #[derive(Serialize, Deserialize, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum ParsingTaskParameters {
-    Reddit(RedditTaskType)
+    Reddit(RedditParsingTask)
 }
 
 impl ParsingTaskParameters {
-    pub fn as_reddit(self) -> RedditTaskType {
+    pub fn as_reddit(self) -> RedditParsingTask {
         return match self {
             ParsingTaskParameters::Reddit(reddit_parameters) => reddit_parameters,
             _ => panic!("wrong method dispatch")
         }
     }
 
-    pub fn as_ref_reddit(&self) -> &RedditTaskType {
+    pub fn as_ref_reddit(&self) -> &RedditParsingTask {
         return match self {
             ParsingTaskParameters::Reddit(reddit_parameters) => reddit_parameters,
             _ => panic!("wrong method dispatch")

@@ -1,7 +1,7 @@
 use mongodb::bson::DateTime;
 use serde::{Serialize, Deserialize};
 
-use crate::generic::{entity::{Entity, EntityType}, social_network::SocialNetworkEnum};
+use crate::commons::{entity::{Entity, EntityType}, social_network::SocialNetworkEnum};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Comment {
@@ -9,7 +9,7 @@ pub struct Comment {
     pub parent_id: String,
     #[serde(rename = "created")] 
     pub timestamp: Option<f64>,
-    pub score: u64, 
+    pub score: i64, 
     #[serde(alias = "author_fullname")]
     pub author_id: Option<String>,
     #[serde(alias = "author")]
@@ -24,7 +24,7 @@ impl From<Comment> for Entity {
         return Entity {
             _id: None,
             id: comment.id,
-            source: comment.source.unwrap_or("".to_string()),
+            source: comment.parent_id,
             source_followers: None,
             date_time: DateTime::from_millis(comment.timestamp.unwrap_or(0.0) as i64 * 1000),
             entity_type: EntityType::Comment,
