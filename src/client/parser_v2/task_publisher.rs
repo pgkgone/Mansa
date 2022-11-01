@@ -5,7 +5,22 @@ use futures::StreamExt;
 use log::info;
 use tokio::sync::mpsc::{self, Sender, Receiver};
 
-use crate::{commons::{parsing_tasks::{ParsingTaskStatus, ParsingTask}, social_network::dispatch_social_network}, client::{db::tasks_db::{Limit, get_tasks_sorted_by_exec_time, update_task_with_status, insert_tasks}, settings::{SettingsPtr, self}}};
+use crate::{
+    commons::{
+        parsing_tasks::{
+            ParsingTaskStatus, 
+            ParsingTask
+        }, 
+        social_network::SOCIAL_NETWORKS
+    }, 
+    client::{
+        db::tasks_db::{
+            Limit, 
+            get_tasks_sorted_by_exec_time, update_task_with_status, insert_tasks
+        }, 
+        settings::SettingsPtr
+    }
+};
 
 pub type TaskPublisherPtr = Arc<TaskPublisher>;
 
@@ -92,13 +107,14 @@ impl TaskPublisher {
 
         for social_network_settings in settings.social_network_settings.values() {
             
-            let mut tasks = dispatch_social_network(
-                settings.clone(), 
-                social_network_settings.social_network, 
-                |settings, social_network_ptr| 
-                    social_network_ptr.prepare_parsing_tasks(settings) )
+            let mut tasks = SOCIAL_NETWORKS
+                .get(&social_network_settings.social_network)
+                .unwrap()
+                .prepare_parsing_tasks(settings.clone())
                 .expect("unable to process tasks from settings file");
+
             info!("{:#?}", tasks);
+
             parsing_tasks.append(&mut tasks);
 
         }

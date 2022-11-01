@@ -16,7 +16,7 @@ opt-level = 3
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.11.11", features = ["json"] }
+reqwest = { version = "0.11.11", features = ["json", "blocking"] }
 serde = { version = "1.0", features = ["unstable", "derive", "rc", "alloc"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 strum_macros = "0.24"
@@ -26,7 +26,7 @@ derivative = "2.2.0"
 async-trait = "0.1.56"
 lazy_static = "1.4.0"
 log = "0.4.0"
-env_logger = "0.9.0"
+log4rs = {version = "1.2.0", features = ["file_appender"]}
 tokio = { version = "1", features = ["full"] }
 async-executor = "1.4.1"
 futures-lite = "1.12.0"
@@ -39,6 +39,8 @@ crossbeam = "0.8.2"
 flurry = "0.4.0"
 scc = "0.11.1"
 tokio-stream = "0.1.11"
+anyhow = "1.0.66"
+console_engine = {version = "2.5.0", features = ["form", "event"]}
 
 [env]
 RUST_LOG = {value = "debug", force = true}

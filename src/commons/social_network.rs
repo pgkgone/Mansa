@@ -5,7 +5,19 @@ use lazy_static::lazy_static;
 use log::{error, info};
 use serde::{Serialize, Deserialize};
 use strum::{EnumIter, Display};
-use crate::{client::{settings::SettingsPtr, parser_v2::account_manager::account::{AccountSession, Account, AccountPtr, AccountDataPtr, ReqwestClientPtr}}, reddit::reddit::Reddit};
+use crate::{
+    client::{
+        settings::SettingsPtr, 
+        parser_v2::account_manager::account::{
+            AccountSession, 
+            Account, 
+            AccountPtr, 
+            AccountDataPtr, 
+            ReqwestClientPtr
+        }
+    }, 
+    reddit::reddit::Reddit
+};
 
 use super::parsing_tasks::ParsingTask;
 
@@ -19,11 +31,10 @@ pub enum SocialNetworkEnum {
     Twitter
 }
 
-
 lazy_static! {
-    pub static ref SOCIAL_NETWORKS: HashMap<String, SocialNetworkPtr> = {
-        let mut map: HashMap<String, SocialNetworkPtr> = HashMap::new();
-        map.insert(SocialNetworkEnum::Reddit.to_string(), Box::new(Reddit::default()));
+    pub static ref SOCIAL_NETWORKS: HashMap<SocialNetworkEnum, SocialNetworkPtr> = {
+        let mut map: HashMap<SocialNetworkEnum, SocialNetworkPtr> = HashMap::new();
+        map.insert(SocialNetworkEnum::Reddit, Box::new(Reddit::default()));
         return map;
     };
 }
@@ -45,7 +56,7 @@ pub fn dispatch_social_network<T, R, F>(
 where
     F: Fn(T, &'static SocialNetworkPtr) -> Result<R, Box<dyn Error>>
 {
-    match SOCIAL_NETWORKS.get(&social_network.to_string()) {
+    match SOCIAL_NETWORKS.get(&social_network) {
         Some(social_network_ptr) => {
             info!("socialnetwork successfully matched");
             return action(data, social_network_ptr);
@@ -67,7 +78,7 @@ where
     F: Fn(T, &'static SocialNetworkPtr) -> Fut,
     Fut: Future<Output = R>,
 {
-    match SOCIAL_NETWORKS.get(&social_network.to_string()) {
+    match SOCIAL_NETWORKS.get(&social_network) {
         Some(social_network_ptr) => {
             info!("socialnetwork successfully matched");
             return action(data, social_network_ptr).await;

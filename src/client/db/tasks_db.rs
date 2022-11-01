@@ -3,9 +3,18 @@ use std::{collections::HashMap, hash::Hash};
 use mongodb::{bson::{doc, self, oid::ObjectId}};
 use serde::{Serialize, Deserialize};
 
-use crate::{commons::{ social_network::SocialNetworkEnum, parsing_tasks::{ParsingTask, ParsingTaskStatus}}, utils::time::get_timestamp};
+use crate::{
+    commons::{
+        social_network::SocialNetworkEnum, 
+        parsing_tasks::{
+            ParsingTask, 
+            ParsingTaskStatus
+        }
+    }, 
+    utils::time::get_timestamp
+};
 
-use super::client::{DATABASE, DATABASE_COLLECTIONS, insert_if_not_empty, get_collection, MONGO_CLIENT, TRANSACTION, ClientSessionPtr, GroupBoundaries};
+use super::client::{DATABASE, DATABASE_COLLECTIONS, insert_if_not_empty, get_collection, GroupBoundaries};
 
 use futures::{StreamExt};
 

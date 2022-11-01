@@ -9,7 +9,7 @@ pub struct Comment {
     pub parent_id: String,
     #[serde(rename = "created")] 
     pub timestamp: Option<f64>,
-    pub score: i64, 
+    pub score: Option<i64>, 
     #[serde(alias = "author_fullname")]
     pub author_id: Option<String>,
     #[serde(alias = "author")]
@@ -32,7 +32,7 @@ impl From<Comment> for Entity {
             title: None, 
             content: comment.body, 
             author_name: comment.author_name, 
-            rating: Some(comment.score), 
+            rating: comment.score, 
             images: Vec::new(),
             social_network: SocialNetworkEnum::Reddit,
         }

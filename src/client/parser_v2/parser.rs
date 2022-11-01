@@ -3,15 +3,35 @@ use std::{sync::{atomic::AtomicUsize, Arc}};
 use log::debug;
 use tokio::sync::{mpsc::Receiver, Notify};
 
-use crate::{commons::{parsing_tasks::{ParsingTask, self}, social_network::dispatch_social_network_async}};
+use crate::{
+    commons::{
+        parsing_tasks::{
+            ParsingTask
+        }, 
+        social_network::{
+            SOCIAL_NETWORKS
+        }
+    }
+};
 
-use super::{task_publisher::{TaskPublisherBuilder, TaskPublisherPtr}, account_manager::{account_pool::{AccountPool, self}, account::AccountPtr, account_pool_builder::AccountPoolBuilder}};
+use super::{
+    task_publisher::{
+        TaskPublisherBuilder, TaskPublisherPtr
+    }, 
+    account_manager::{
+        account_pool::{
+            AccountPool
+        }, 
+        account::AccountPtr, 
+        account_pool_builder::AccountPoolBuilder
+    }, 
+    statistics::STATISTICS
+};
 
 pub type AccountPoolPtr = Arc<AccountPool>;
 pub type ParserThreadCounterPtr = Arc<ParserThreadCounter>;
 pub struct ParserThreadCounter {
-    number_concurrent_tasks: AtomicUsize, 
-    number_total_finished_tasks: AtomicUsize, 
+    number_concurrent_tasks: AtomicUsize,
     thread_available_notification: Notify,
     limit: usize
 }
@@ -21,7 +41,6 @@ impl ParserThreadCounter {
     pub fn new(limit: usize) -> ParserThreadCounter {
         return ParserThreadCounter { 
             number_concurrent_tasks: AtomicUsize::new(0),
-            number_total_finished_tasks: AtomicUsize::new(0), 
             thread_available_notification: Notify::new(),
             limit
         }
@@ -29,6 +48,7 @@ impl ParserThreadCounter {
 
     pub async fn increase(&self) -> usize {
         let current_number_of_threads = self.number_concurrent_tasks.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        STATISTICS.increase_current_running_threads();
         if current_number_of_threads > 20 {
             debug!("waiting for thread notification");
             self.wait_available_thread().await;
@@ -38,13 +58,9 @@ impl ParserThreadCounter {
 
     pub async fn decrease(&self) -> usize {
         let current_number_of_threads = self.number_concurrent_tasks.fetch_sub(1, std::sync::atomic::Ordering::Relaxed) - 1;
+        STATISTICS.decrease_current_running_threads();
         self.thread_available_notification.notify_one();
         return current_number_of_threads;
-    }
-
-    pub async fn increase_finished(&self) {
-        let finished_tasks = self.number_total_finished_tasks.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-        debug!("total finished tasks: {}", finished_tasks);
     }
 
     async fn wait_available_thread(&self) {
@@ -91,27 +107,25 @@ impl Parser {
 
             debug!("account successfully received");
 
-            let notifier = self.thread_counter.clone();
+            let thread_counter = self.thread_counter.clone();
 
             debug!("spawning async parsing task");
 
             tokio::spawn(async move {
+                STATISTICS.increase_started_parsing_tasks();
                 Self::parse(parsing_task, account).await;
-                notifier.decrease().await;
-                notifier.increase_finished().await;
+                thread_counter.decrease().await;
+                STATISTICS.increase_successful_parsing_tasks();
             });
         }
     }
 
     async fn parse(task: ParsingTask, account: AccountPtr) {
         let social_network = task.social_network.clone();
-        dispatch_social_network_async(
-            (task, account), 
-            social_network, 
-            |(task, account), social_net_ptr| {
-                social_net_ptr.parse(task, account)
-            }
-        ).await;
+        SOCIAL_NETWORKS.get(&social_network)
+            .expect("No such social network!")
+            .parse(task, account)
+            .await;
     }
 
     pub fn run_task_publisher(&self) {
