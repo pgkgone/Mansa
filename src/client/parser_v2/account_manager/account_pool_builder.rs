@@ -1,12 +1,32 @@
-use std::{sync::Arc, collections::{HashMap, LinkedList}};
+use std::{
+    sync::Arc, 
+    collections::{
+        HashMap, 
+        LinkedList
+    }
+};
 
 use log::info;
 use tokio::sync::Mutex;
 use futures::StreamExt;
 
-use crate::{client::{settings::SettingsPtr}, commons::social_network::{dispatch_social_network, SocialNetworkEnum}};
+use crate::{
+    client::{
+        settings::SettingsPtr
+    }, 
+    commons::social_network::{
+        SocialNetworkEnum, 
+        SOCIAL_NETWORKS
+    }
+};
 
-use super::{account::{AccountPoolPtr, AccountPtr}, account_pool::AccountPool};
+use super::{
+    account::{
+        AccountPoolPtr, 
+        AccountPtr
+    }, 
+    account_pool::AccountPool
+};
 
 pub struct AccountPoolBuilder {
     settings: SettingsPtr,
@@ -23,16 +43,14 @@ impl AccountPoolBuilder {
     }
  
     async fn read_accounts_from_settings(&mut self) {
-        for social_netowork in self.settings.social_network_settings.keys() {
-            let accounts: LinkedList<AccountPtr> = dispatch_social_network(
-                self.settings.clone(), 
-                *social_netowork, 
-                |settings, social_netowork_ptr| 
-                    social_netowork_ptr.prepare_accounts(settings.clone())
-            ).unwrap()
-            .into_iter()
-            .map(|account| Arc::new(account))
-            .collect();
+        for social_network in self.settings.social_network_settings.keys() {
+
+            let accounts: LinkedList<AccountPtr> = SOCIAL_NETWORKS.get(&social_network)
+                .expect("No such social network!")
+                .prepare_accounts(self.settings.clone()).unwrap()
+                .into_iter()
+                .map(|account| Arc::new(account))
+                .collect();
 
             info!("start account authorization");
 
@@ -43,7 +61,7 @@ impl AccountPoolBuilder {
             info!("all accounts successfully authorized");
 
             self.social_network_accounts_map.insert(
-                *social_netowork,
+                *social_network,
                 Mutex::new(accounts)
             );
         }

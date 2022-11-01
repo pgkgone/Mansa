@@ -3,10 +3,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Duration};
-use futures::{future::try_join_all, FutureExt};
+use futures::FutureExt;
 use log::{error, info};
 use reqwest::{Response, StatusCode};
 use crate::client::parser_v2::account_manager::account::{AccountSession, Account, AccountPtr, AccountDataPtr, ReqwestClientPtr};
+use crate::client::parser_v2::statistics::STATISTICS;
 use crate::client::settings::{SettingsPtr};
 use crate::utils::time::get_timestamp;
 use crate::client::db::tasks_db::{update_tasks_with_status, insert_tasks};
@@ -14,7 +15,17 @@ use crate::client::db::entities_db::{insert_with_replace};
 use crate::commons::social_network::*;
 use crate::commons::parsing_tasks::*;
 use crate::commons::entity::Entity;
-use super::{reddit_parsing_task::RedditParsingTask, data_types::{reddit_auth::AuthResponse, reddit_pages::{ThreadPage, CommentPage}, reddit_response_body::ResponseBody}};
+use super::{
+    reddit_parsing_task::RedditParsingTask, 
+    data_types::{
+        reddit_auth::AuthResponse, 
+        reddit_pages::{
+            ThreadPage, 
+            CommentPage
+        }, 
+        reddit_response_body::ResponseBody
+    }
+};
 
 pub struct Reddit {
     pub auth_url: String,
@@ -158,9 +169,11 @@ impl Reddit {
                     session.millis_to_refresh = millis_to_refresh;
                     session.requests_limit = requests_limit;
                 } else {
+                    STATISTICS.increase_failed_parsing_tasks();
                     info!("Recived status: {}", response.status());
                     update_tasks_with_status(vec![task._id.unwrap()], ParsingTaskStatus::New).await;
                     if response.status() == StatusCode::FORBIDDEN {
+                        STATISTICS.increase_access_failed_parsing_tasks();
                         account.auth().await;
                     }
                 }
@@ -271,8 +284,6 @@ impl Reddit {
             ResponseBody::Comments(comments) => {
                 let mut comments = comments.unwrap();
                 comments.comments.data.children.into_iter().for_each(|item| entities.push(item.data.into()));
-            //    entities.push(Entity::from(comments.post.data.children.remove(0).data));
-             //   entities.push(Entity::from(comments.post.data.children.remove(0).data));
             },
         }
         return entities;

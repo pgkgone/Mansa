@@ -4,7 +4,16 @@ use derivative::Derivative;
 use log::{info, error};
 use tokio::sync::{RwLock};
 
-use crate::{client::{settings::{self, Proxy}}, commons::social_network::dispatch_social_network_async};
+use crate::{
+    client::{
+        settings::{
+            self, 
+            Proxy
+        }, 
+        parser_v2::statistics::STATISTICS
+    }, 
+    commons::social_network::SOCIAL_NETWORKS
+};
 
 use super::account_pool::AccountPool;
 
@@ -29,7 +38,7 @@ pub struct Account {
 
 impl PartialEq for Account {
     fn eq(&self, other: &Self) -> bool {
-        return self.account_data == self.account_data;
+        return self.account_data == other.account_data;
     }
 }
 
@@ -57,24 +66,29 @@ impl Account {
     
     pub async fn auth(&self) 
     {
+
         info!("authenticate account {:?}", self.account_data);
-        let session = dispatch_social_network_async(
-            (self.account_data.clone(), self.reqwest_client.clone()), 
-            self.account_data.social_network, 
-            |(account_data, client_ptr), network| {
-                network.auth(account_data, client_ptr.expect("Reqwest client should be set before authentication of account"))
-            }
-        ).await
-        .inspect_err(
-            |e| error!("{} for account: login: {}  password: {} social_network:{}",
-                e, 
-                self.account_data.login.as_ref().unwrap_or(&"no login for that social net".to_string()), 
-                self.account_data.password.as_ref().unwrap_or(&"no password for that social net".to_string()), 
-                self.account_data.social_network.to_string()
-            )
-        ).unwrap();
+
+        let session = SOCIAL_NETWORKS
+            .get(&self.account_data.social_network)
+            .expect("No such social network!")
+            .auth(
+                self.account_data.clone(), 
+                self.reqwest_client.clone().expect("Reqwest client should be set before authentication of account")
+            ).await
+            .inspect_err(
+                |e| error!("{} for account: login: {}  password: {} social_network:{}",
+                    e, 
+                    self.account_data.login.as_ref().unwrap_or(&"no login for that social net".to_string()), 
+                    self.account_data.password.as_ref().unwrap_or(&"no password for that social net".to_string()), 
+                    self.account_data.social_network.to_string()
+                )
+            ).unwrap();
+
         let mut session_guard = self.session.write().await;
         session_guard.replace(session);
+        STATISTICS.increase_total_number_of_accounts();
+
     }
 
     pub fn setup_reqwest_client(&mut self) {
